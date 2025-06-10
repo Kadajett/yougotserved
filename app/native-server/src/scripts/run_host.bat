@@ -1,27 +1,33 @@
 @echo off
-setlocal
+REM Enable delayed expansion to correctly handle variables that are set and read within the same () code block.
+setlocal enabledelayedexpansion
 
-REM Get the directory of this batch script
+REM --- 1. SETUP PATHS AND LOGGING ---
+
+REM Get the directory of this batch script.
 set "SCRIPT_DIR=%~dp0"
-REM Remove trailing backslash from SCRIPT_DIR if present for consistency
+REM Remove the trailing backslash from the directory path for consistency.
 if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
-REM Define the log directory relative to the script
+REM Define the log directory relative to the script's location.
 set "LOG_DIR=%SCRIPT_DIR%\logs"
-REM Define the Node.js script path
+REM Define the full path to the Node.js script that will be executed.
 set "NODE_SCRIPT=%SCRIPT_DIR%\index.js"
 
-REM Create log directory if it doesn't exist
+REM Create the log directory if it does not already exist.
 if not exist "%LOG_DIR%" (
   md "%LOG_DIR%"
 )
 
-REM Timestamp for log files (YYYYMMDD_HHMMSS)
+REM Generate a timestamp for unique log file names (Format: YYYYMMDD_HHMMSS).
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /format:list') do set "DATETIME_STR=%%I"
 set "TIMESTAMP=%DATETIME_STR:~0,8%_%DATETIME_STR:~8,6%"
 
+REM Define the full paths for the wrapper's main log and the stderr log from the Node.js process.
 set "WRAPPER_LOG=%LOG_DIR%\native_host_wrapper_windows_%TIMESTAMP%.log"
 set "STDERR_LOG=%LOG_DIR%\native_host_stderr_windows_%TIMESTAMP%.log"
+
+REM --- 2. INITIAL DIAGNOSTIC LOGGING ---
 
 echo Wrapper script called at %DATE% %TIME% > "%WRAPPER_LOG%"
 echo SCRIPT_DIR: %SCRIPT_DIR% >> "%WRAPPER_LOG%"
@@ -31,114 +37,52 @@ echo Initial PATH: %PATH% >> "%WRAPPER_LOG%"
 echo User: %USERNAME% >> "%WRAPPER_LOG%"
 echo Current PWD: %CD% >> "%WRAPPER_LOG%"
 
+REM --- 3. LOCATE NODE.JS EXECUTABLE (IN ORDER OF PRIORITY) ---
+
 set "NODE_EXEC="
 
-
-set "EXPECTED_NVM_NODE=%SCRIPT_DIR%\..\..\..\node.exe"
-echo Checking for NVM-specific node at: %EXPECTED_NVM_NODE% >> "%WRAPPER_LOG%"
-if exist "%EXPECTED_NVM_NODE%" (
-    set "NODE_EXEC=%EXPECTED_NVM_NODE%"
-    echo Found NVM-specific node.exe at %NODE_EXEC% >> "%WRAPPER_LOG%"
+REM Priority 1: Check for a Node.js executable relative to this script's location.
+REM This is the most reliable method for packages installed via npm/nvm, as it uses the exact node version the package was installed with.
+set "EXPECTED_NODE=%SCRIPT_DIR%\..\..\..\node.exe"
+echo Checking for script-relative node at: %EXPECTED_NODE% >> "%WRAPPER_LOG%"
+if exist "%EXPECTED_NODE%" (
+    set "NODE_EXEC=%EXPECTED_NODE%"
+    REM Use !variable! for delayed expansion to get the value set inside this block.
+    echo Found script-relative node.exe at !NODE_EXEC! >> "%WRAPPER_LOG%"
 )
 
-REM 2. If NVM-specific node not found, try direct path based on script location
-if not defined NODE_EXEC (
-    REM Extract version from path and construct direct node path
-    echo SCRIPT_DIR is: %SCRIPT_DIR% >> "%WRAPPER_LOG%"
-    for %%i in ("%SCRIPT_DIR%") do set "TEMP_PATH=%%~dpi"
-    for %%i in ("%TEMP_PATH%\..\..\..") do set "VERSION_PATH=%%~fi"
-    echo Trying version path: %VERSION_PATH% >> "%WRAPPER_LOG%"
-    if exist "%VERSION_PATH%\node.exe" (
-        set "NODE_EXEC=%VERSION_PATH%\node.exe"
-        echo Found node.exe in version directory: %NODE_EXEC% >> "%WRAPPER_LOG%"
-    )
-)
-
-REM 3. If still not found, check if node is in PATH using 'where'
+REM Priority 2: If not found above, search the system's PATH using the 'where' command.
 if not defined NODE_EXEC (
     echo Trying 'where node.exe'... >> "%WRAPPER_LOG%"
     for /f "delims=" %%i in ('where node.exe 2^>nul') do (
         if not defined NODE_EXEC (
             set "NODE_EXEC=%%i"
-            echo Found node using 'where node.exe': %NODE_EXEC% >> "%WRAPPER_LOG%"
+            echo Found node using 'where node.exe': !NODE_EXEC! >> "%WRAPPER_LOG%"
         )
     )
 )
 
-REM 4. If not found by 'where', check common locations
+REM Priority 3: As a final fallback, check common installation directories.
 if not defined NODE_EXEC (
     if exist "%ProgramFiles%\nodejs\node.exe" (
         set "NODE_EXEC=%ProgramFiles%\nodejs\node.exe"
-        echo Found node at %ProgramFiles%\nodejs\node.exe >> "%WRAPPER_LOG%"
+        echo Found node at !NODE_EXEC! >> "%WRAPPER_LOG%"
     ) else if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
         set "NODE_EXEC=%ProgramFiles(x86)%\nodejs\node.exe"
-        echo Found node at %ProgramFiles(x86)%\nodejs\node.exe >> "%WRAPPER_LOG%"
+        echo Found node at !NODE_EXEC! >> "%WRAPPER_LOG%"
     ) else if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" (
         set "NODE_EXEC=%LOCALAPPDATA%\Programs\nodejs\node.exe"
-        echo Found node at %LOCALAPPDATA%\Programs\nodejs\node.exe >> "%WRAPPER_LOG%"
-    )
-    REM Add more common paths if necessary, e.g., for NVM for Windows
-    if exist "%APPDATA%\nvm" (
-        for /f "delims=" %%v in ('dir /b /ad "%APPDATA%\nvm" 2^>nul ^| sort /r') do (
-            if not defined NODE_EXEC if exist "%APPDATA%\nvm\%%v\node.exe" (
-                set "NODE_EXEC=%APPDATA%\nvm\%%v\node.exe"
-                echo Found NVM for Windows node at %APPDATA%\nvm\%%v\node.exe >> "%WRAPPER_LOG%"
-                goto :node_found
-            )
-        )
-    )
-
-    REM Check for Volta (another Node.js version manager)
-    if exist "%LOCALAPPDATA%\Volta\bin\node.exe" (
-        if not defined NODE_EXEC (
-            set "NODE_EXEC=%LOCALAPPDATA%\Volta\bin\node.exe"
-            echo Found Volta node at %LOCALAPPDATA%\Volta\bin\node.exe >> "%WRAPPER_LOG%"
-        )
-    )
-
-    REM Check for fnm (Fast Node Manager)
-    if exist "%LOCALAPPDATA%\fnm_multishells" (
-        for /f "delims=" %%v in ('dir /b /ad "%LOCALAPPDATA%\fnm_multishells" 2^>nul ^| sort /r') do (
-            if not defined NODE_EXEC if exist "%LOCALAPPDATA%\fnm_multishells\%%v\node.exe" (
-                set "NODE_EXEC=%LOCALAPPDATA%\fnm_multishells\%%v\node.exe"
-                echo Found fnm node at %LOCALAPPDATA%\fnm_multishells\%%v\node.exe >> "%WRAPPER_LOG%"
-                goto :node_found
-            )
-        )
-    )
-
-    REM Check for Scoop installation
-    if exist "%USERPROFILE%\scoop\apps\nodejs\current\node.exe" (
-        if not defined NODE_EXEC (
-            set "NODE_EXEC=%USERPROFILE%\scoop\apps\nodejs\current\node.exe"
-            echo Found Scoop node at %USERPROFILE%\scoop\apps\nodejs\current\node.exe >> "%WRAPPER_LOG%"
-        )
-    )
-
-    REM Check for Chocolatey installation
-    if exist "%ProgramData%\chocolatey\lib\nodejs\tools\node.exe" (
-        if not defined NODE_EXEC (
-            set "NODE_EXEC=%ProgramData%\chocolatey\lib\nodejs\tools\node.exe"
-            echo Found Chocolatey node at %ProgramData%\chocolatey\lib\nodejs\tools\node.exe >> "%WRAPPER_LOG%"
-        )
+        echo Found node at !NODE_EXEC! >> "%WRAPPER_LOG%"
     )
 )
 :node_found
 
+REM --- 4. VALIDATE AND EXECUTE ---
+
+REM If no Node.js executable was found after all checks, log an error and exit.
 if not defined NODE_EXEC (
-    echo ERROR: Node.js executable not found! >> "%WRAPPER_LOG%"
-    echo Searched 'where node.exe' and common installation paths. >> "%WRAPPER_LOG%"
-    echo Searched paths: >> "%WRAPPER_LOG%"
-    echo   - %ProgramFiles%\nodejs\node.exe >> "%WRAPPER_LOG%"
-    echo   - %ProgramFiles(x86)%\nodejs\node.exe >> "%WRAPPER_LOG%"
-    echo   - %LOCALAPPDATA%\Programs\nodejs\node.exe >> "%WRAPPER_LOG%"
-    echo   - %APPDATA%\nvm\* >> "%WRAPPER_LOG%"
-    echo   - %LOCALAPPDATA%\Volta\bin\node.exe >> "%WRAPPER_LOG%"
-    echo   - %LOCALAPPDATA%\fnm_multishells\* >> "%WRAPPER_LOG%"
-    echo   - %USERPROFILE%\scoop\apps\nodejs\current\node.exe >> "%WRAPPER_LOG%"
-    echo   - %ProgramData%\chocolatey\lib\nodejs\tools\node.exe >> "%WRAPPER_LOG%"
-    echo Please install Node.js or ensure it's in your PATH. >> "%WRAPPER_LOG%"
-    echo You can download Node.js from: https://nodejs.org/ >> "%WRAPPER_LOG%"
+    echo ERROR: Node.js executable not found! All search methods failed. >> "%WRAPPER_LOG%"
+    echo Please ensure Node.js is installed and accessible. >> "%WRAPPER_LOG%"
     exit /B 1
 )
 
@@ -146,10 +90,10 @@ echo Using Node executable: %NODE_EXEC% >> "%WRAPPER_LOG%"
 echo Node version found by script: >> "%WRAPPER_LOG%"
 call "%NODE_EXEC%" -v >> "%WRAPPER_LOG%" 2>>&1
 
-REM Verify Node.js script exists
+REM Verify that the target Node.js script actually exists before trying to run it.
 if not exist "%NODE_SCRIPT%" (
-    echo ERROR: Node.js script not found: %NODE_SCRIPT% >> "%WRAPPER_LOG%"
-    echo Please ensure the native host is properly installed. >> "%WRAPPER_LOG%"
+    echo ERROR: The target Node.js script was not found at %NODE_SCRIPT% >> "%WRAPPER_LOG%"
+    echo The installation might be corrupt. >> "%WRAPPER_LOG%"
     exit /B 1
 )
 
@@ -157,7 +101,9 @@ echo Node.js script exists: %NODE_SCRIPT% >> "%WRAPPER_LOG%"
 echo Executing: "%NODE_EXEC%" "%NODE_SCRIPT%" >> "%WRAPPER_LOG%"
 echo ==================== Starting Native Host ==================== >> "%WRAPPER_LOG%"
 
-REM Execute the Node.js script. Stdout goes to Chrome. Stderr goes to the log file.
+REM Execute the Node.js script.
+REM Standard Output is sent to Chrome for Native Messaging communication.
+REM Standard Error is redirected to the stderr log file for debugging.
 call "%NODE_EXEC%" "%NODE_SCRIPT%" 2>> "%STDERR_LOG%"
 set "EXIT_CODE=%ERRORLEVEL%"
 
