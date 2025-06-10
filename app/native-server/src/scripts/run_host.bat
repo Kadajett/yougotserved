@@ -33,28 +33,39 @@ echo Current PWD: %CD% >> "%WRAPPER_LOG%"
 
 set "NODE_EXEC="
 
-REM 1. (NEW) First try to find Node.js in the same NVM environment as this script
-REM Extract the NVM path from the current script directory
-for %%i in ("%SCRIPT_DIR%") do set "POTENTIAL_NVM_PATH=%%~dpi"
-set "POTENTIAL_NVM_PATH=%POTENTIAL_NVM_PATH:~0,-1%"
-REM Go up to find the NVM root (e.g., from v20.19.2\node_modules\... to v20.19.2)
-for %%i in ("%POTENTIAL_NVM_PATH%\..\..\..") do set "NVM_VERSION_PATH=%%~fi"
-if exist "%NVM_VERSION_PATH%\node.exe" (
-    set "NODE_EXEC=%NVM_VERSION_PATH%\node.exe"
+
+set "EXPECTED_NVM_NODE=%SCRIPT_DIR%\..\..\..\node.exe"
+echo Checking for NVM-specific node at: %EXPECTED_NVM_NODE% >> "%WRAPPER_LOG%"
+if exist "%EXPECTED_NVM_NODE%" (
+    set "NODE_EXEC=%EXPECTED_NVM_NODE%"
     echo Found NVM-specific node.exe at %NODE_EXEC% >> "%WRAPPER_LOG%"
 )
 
-REM 2. If NVM-specific node not found, check if node is in PATH using 'where'
+REM 2. If NVM-specific node not found, try direct path based on script location
 if not defined NODE_EXEC (
-    for /f "delims=" %%i in ('where node.exe 2^>nul') do (
-        if not defined NODE_EXEC set "NODE_EXEC=%%i"
-    )
-    if defined NODE_EXEC (
-        echo Found node using 'where node.exe': %NODE_EXEC% >> "%WRAPPER_LOG%"
+    REM Extract version from path and construct direct node path
+    echo SCRIPT_DIR is: %SCRIPT_DIR% >> "%WRAPPER_LOG%"
+    for %%i in ("%SCRIPT_DIR%") do set "TEMP_PATH=%%~dpi"
+    for %%i in ("%TEMP_PATH%\..\..\..") do set "VERSION_PATH=%%~fi"
+    echo Trying version path: %VERSION_PATH% >> "%WRAPPER_LOG%"
+    if exist "%VERSION_PATH%\node.exe" (
+        set "NODE_EXEC=%VERSION_PATH%\node.exe"
+        echo Found node.exe in version directory: %NODE_EXEC% >> "%WRAPPER_LOG%"
     )
 )
 
-REM 2. If not found by 'where', check common locations
+REM 3. If still not found, check if node is in PATH using 'where'
+if not defined NODE_EXEC (
+    echo Trying 'where node.exe'... >> "%WRAPPER_LOG%"
+    for /f "delims=" %%i in ('where node.exe 2^>nul') do (
+        if not defined NODE_EXEC (
+            set "NODE_EXEC=%%i"
+            echo Found node using 'where node.exe': %NODE_EXEC% >> "%WRAPPER_LOG%"
+        )
+    )
+)
+
+REM 4. If not found by 'where', check common locations
 if not defined NODE_EXEC (
     if exist "%ProgramFiles%\nodejs\node.exe" (
         set "NODE_EXEC=%ProgramFiles%\nodejs\node.exe"
