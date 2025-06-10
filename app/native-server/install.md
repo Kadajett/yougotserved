@@ -68,12 +68,14 @@ chrome-mcp-bridge register --system
 
 **Windows**：
 以管理员身份运行命令提示符或 PowerShell，然后执行：
+
 ```
 chrome-mcp-bridge register
 ```
 
 **macOS/Linux**：
 使用 sudo 命令：
+
 ```
 sudo chrome-mcp-bridge register
 ```
@@ -168,11 +170,13 @@ manifest.json
 安装完成后，您可以通过以下方式验证安装是否成功：
 
 1. 检查清单文件是否存在于相应目录
+
    - 用户级别：检查用户目录下的清单文件
    - 系统级别：检查系统目录下的清单文件
    - 确认清单文件内容是否正确
 
 2. 在 Chrome 中安装对应的扩展
+
    - 确保扩展已正确安装
    - 确保扩展有 `nativeMessaging` 权限
 
@@ -190,6 +194,11 @@ manifest.json
 │  ├─ 检查用户权限
 │  │  ├─ 有足够权限 → 检查目录权限
 │  │  └─ 无足够权限 → 尝试系统级别安装
+│  │
+│  ├─ 执行权限问题 (macOS/Linux)
+│  │  ├─ "Permission denied" 错误
+│  │  ├─ "Native host has exited" 错误
+│  │  └─ 运行 chrome-mcp-bridge fix-permissions
 │  │
 │  └─ 尝试 chrome-mcp-bridge register --system
 │
@@ -211,26 +220,50 @@ manifest.json
 如果安装过程中遇到问题，请尝试以下步骤：
 
 1. 确保 Node.js 已正确安装
+
    - 运行 `node -v` 和 `npm -v` 检查版本
    - 确保 Node.js 版本 >= 14.x
 
 2. 检查是否有足够的权限创建文件和目录
+
    - 用户级别安装需要对用户目录有写入权限
    - 系统级别安装需要管理员/root权限
 
-3. 在 Windows 上，确保注册表访问没有被限制
+3. **修复执行权限问题（macOS/Linux）**
+
+   - 如果遇到 "Failed to start native messaging host."" 错误
+   - 运行以下命令修复执行权限：
+
+   ```bash
+   chrome-mcp-bridge fix-permissions
+   ```
+
+   - 或者手动设置权限：
+
+   ```bash
+   # 查找安装路径
+   npm list -g chrome-mcp-bridge
+   # 设置执行权限（替换为实际路径）
+   chmod +x /path/to/node_modules/chrome-mcp-bridge/run_host.sh
+   chmod +x /path/to/node_modules/chrome-mcp-bridge/index.js
+   ```
+
+4. 在 Windows 上，确保注册表访问没有被限制
+
    - 检查是否可以访问 `HKCU\Software\Google\Chrome\NativeMessagingHosts\`
    - 对于系统级别，检查 `HKLM\Software\Google\Chrome\NativeMessagingHosts\`
 
-4. 尝试使用系统级别安装
+5. 尝试使用系统级别安装
+
    - 使用 `chrome-mcp-bridge register --system` 命令
    - 或直接使用管理员权限运行
 
-5. 检查控制台输出的错误信息
+6. 检查控制台输出的错误信息
    - 详细的错误信息通常会指出问题所在
    - 可以添加 `--verbose` 参数获取更多日志信息
 
 如果问题仍然存在，请提交 issue 到项目仓库，并附上以下信息：
+
 - 操作系统版本
 - Node.js 版本
 - 安装命令

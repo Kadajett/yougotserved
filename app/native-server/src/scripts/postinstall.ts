@@ -20,14 +20,28 @@ async function tryRegisterNativeHost(): Promise<void> {
     if (isGlobalInstall) {
       // 1. Ensure native host has execution permissions
       const launcherPath = path.join(__dirname, '..', 'index.js');
+      const wrapperScriptPath = path.join(
+        __dirname,
+        '..',
+        process.platform === 'win32' ? 'run_host.bat' : 'run_host.sh',
+      );
+
       try {
         // Set execution permissions on non-Windows platforms
         if (process.platform !== 'win32') {
           fs.chmodSync(launcherPath, '755');
           console.log('✓ Set launcher execution permissions');
+
+          // Also set execution permissions for the wrapper script
+          if (fs.existsSync(wrapperScriptPath)) {
+            fs.chmodSync(wrapperScriptPath, '755');
+            console.log('✓ Set wrapper script execution permissions');
+          } else {
+            console.warn('⚠️ Wrapper script not found:', wrapperScriptPath);
+          }
         }
       } catch (err: any) {
-        console.warn('⚠️ Unable to set launcher execution permissions:', err.message);
+        console.warn('⚠️ Unable to set execution permissions:', err.message);
         // Non-critical error, don't block
       }
 
@@ -36,14 +50,23 @@ async function tryRegisterNativeHost(): Promise<void> {
 
       if (!userLevelSuccess) {
         // User-level installation failed, suggest using register command
-        console.log(colorText('User-level installation failed, system-level installation may be needed', 'yellow'));
-        console.log(colorText('Please run the following command for system-level installation:', 'blue'));
+        console.log(
+          colorText(
+            'User-level installation failed, system-level installation may be needed',
+            'yellow',
+          ),
+        );
+        console.log(
+          colorText('Please run the following command for system-level installation:', 'blue'),
+        );
         console.log(`  ${COMMAND_NAME} register --system`);
         printManualInstructions();
       }
     } else {
       // Local installation mode, don't attempt automatic registration
-      console.log(colorText('Local installation detected, skipping automatic registration', 'yellow'));
+      console.log(
+        colorText('Local installation detected, skipping automatic registration', 'yellow'),
+      );
       printManualInstructions();
     }
   } catch (error) {
@@ -70,7 +93,9 @@ function printManualInstructions(): void {
     console.log(`  npx ${COMMAND_NAME} register`);
   }
 
-  console.log(colorText('\n2. If user-level installation fails, try system-level installation:', 'yellow'));
+  console.log(
+    colorText('\n2. If user-level installation fails, try system-level installation:', 'yellow'),
+  );
 
   console.log(colorText('   Use --system parameter (auto-elevate permissions):', 'yellow'));
   if (isGlobalInstall) {
@@ -81,7 +106,12 @@ function printManualInstructions(): void {
 
   console.log(colorText('\n   Or use administrator privileges directly:', 'yellow'));
   if (os.platform() === 'win32') {
-    console.log(colorText('   Please run Command Prompt or PowerShell as administrator and execute:', 'yellow'));
+    console.log(
+      colorText(
+        '   Please run Command Prompt or PowerShell as administrator and execute:',
+        'yellow',
+      ),
+    );
     if (isGlobalInstall) {
       console.log(`  ${COMMAND_NAME} register`);
     } else {
@@ -96,7 +126,13 @@ function printManualInstructions(): void {
     }
   }
 
-  console.log('\n' + colorText('Ensure Chrome extension is installed and refresh the extension to connect to local service.', 'blue'));
+  console.log(
+    '\n' +
+      colorText(
+        'Ensure Chrome extension is installed and refresh the extension to connect to local service.',
+        'blue',
+      ),
+  );
 }
 
 /**
@@ -118,7 +154,10 @@ async function main(): Promise<void> {
 if (isDirectRun) {
   main().catch((error) => {
     console.error(
-      colorText(`Installation script error: ${error instanceof Error ? error.message : String(error)}`, 'red'),
+      colorText(
+        `Installation script error: ${error instanceof Error ? error.message : String(error)}`,
+        'red',
+      ),
     );
   });
 }

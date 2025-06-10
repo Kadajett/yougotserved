@@ -98,6 +98,47 @@ export async function getMainPath(): Promise<string> {
 }
 
 /**
+ * 确保关键文件具有执行权限
+ */
+export async function ensureExecutionPermissions(): Promise<void> {
+  if (process.platform === 'win32') {
+    // Windows 平台不需要设置执行权限
+    return;
+  }
+
+  try {
+    const packageDistDir = path.join(__dirname, '..');
+    const filesToCheck = [
+      path.join(packageDistDir, 'index.js'),
+      path.join(packageDistDir, 'run_host.sh'),
+      path.join(packageDistDir, 'cli.js'),
+    ];
+
+    for (const filePath of filesToCheck) {
+      if (fs.existsSync(filePath)) {
+        try {
+          fs.chmodSync(filePath, '755');
+          console.log(
+            colorText(`✓ Set execution permissions for ${path.basename(filePath)}`, 'green'),
+          );
+        } catch (err: any) {
+          console.warn(
+            colorText(
+              `⚠️ Unable to set execution permissions for ${path.basename(filePath)}: ${err.message}`,
+              'yellow',
+            ),
+          );
+        }
+      } else {
+        console.warn(colorText(`⚠️ File not found: ${filePath}`, 'yellow'));
+      }
+    }
+  } catch (error: any) {
+    console.warn(colorText(`⚠️ Error ensuring execution permissions: ${error.message}`, 'yellow'));
+  }
+}
+
+/**
  * Create Native Messaging host manifest content
  */
 export async function createManifestContent(): Promise<any> {
@@ -119,18 +160,21 @@ export async function tryRegisterUserLevelHost(): Promise<boolean> {
   try {
     console.log(colorText('Attempting to register user-level Native Messaging host...', 'blue'));
 
-    // 1. 确定清单文件路径
+    // 1. 确保执行权限
+    await ensureExecutionPermissions();
+
+    // 2. 确定清单文件路径
     const manifestPath = getUserManifestPath();
 
-    // 2. 确保目录存在
+    // 3. 确保目录存在
     await mkdir(path.dirname(manifestPath), { recursive: true });
 
-    // 3. 创建清单内容
+    // 4. 创建清单内容
     const manifest = await createManifestContent();
 
     console.log('manifest path==>', manifest, manifestPath);
 
-    // 4. 写入清单文件
+    // 5. 写入清单文件
     await writeFile(manifestPath, JSON.stringify(manifest, null, 2));
 
     if (os.platform() === 'win32') {
@@ -142,7 +186,9 @@ export async function tryRegisterUserLevelHost(): Promise<boolean> {
         );
         console.log(colorText('✓ Successfully created Windows registry entry', 'green'));
       } catch (error: any) {
-        console.log(colorText(`⚠️ Unable to create Windows registry entry: ${error.message}`, 'yellow'));
+        console.log(
+          colorText(`⚠️ Unable to create Windows registry entry: ${error.message}`, 'yellow'),
+        );
         return false; // Windows上如果注册表项创建失败，整个注册过程应该视为失败
       }
     }
@@ -188,7 +234,10 @@ export async function registerWithElevatedPermissions(): Promise<void> {
   try {
     console.log(colorText('Attempting to register system-level manifest...', 'blue'));
 
-    // 1. 准备清单内容
+    // 1. 确保执行权限
+    await ensureExecutionPermissions();
+
+    // 2. 准备清单内容
     const manifest = await createManifestContent();
 
     // 3. 获取系统级清单路径
@@ -227,7 +276,9 @@ export async function registerWithElevatedPermissions(): Promise<void> {
 
         console.log(colorText('System-level manifest registration successful!', 'green'));
       } catch (error: any) {
-        console.error(colorText(`System-level manifest installation failed: ${error.message}`, 'red'));
+        console.error(
+          colorText(`System-level manifest installation failed: ${error.message}`, 'red'),
+        );
         throw error;
       }
     } else {
@@ -235,7 +286,9 @@ export async function registerWithElevatedPermissions(): Promise<void> {
       await new Promise((resolve, reject) => {
         sudoPrompt.exec(command, { name: `${COMMAND_NAME} Installer` }, (error: Error) => {
           if (error) {
-            console.error(colorText(`Elevated permission installation failed: ${error.message}`, 'red'));
+            console.error(
+              colorText(`Elevated permission installation failed: ${error.message}`, 'red'),
+            );
             reject(error);
           } else {
             console.log(colorText('System-level manifest registration successful!', 'green'));
@@ -256,7 +309,9 @@ export async function registerWithElevatedPermissions(): Promise<void> {
           execSync(regCommand, { stdio: 'ignore' });
           console.log(colorText('Windows registry entry created successfully!', 'green'));
         } catch (error: any) {
-          console.error(colorText(`Windows registry entry creation failed: ${error.message}`, 'red'));
+          console.error(
+            colorText(`Windows registry entry creation failed: ${error.message}`, 'red'),
+          );
           throw error;
         }
       } else {
@@ -264,7 +319,9 @@ export async function registerWithElevatedPermissions(): Promise<void> {
         await new Promise<void>((resolve, reject) => {
           sudoPrompt.exec(regCommand, { name: `${COMMAND_NAME} Installer` }, (error: Error) => {
             if (error) {
-              console.error(colorText(`Windows registry entry creation failed: ${error.message}`, 'red'));
+              console.error(
+                colorText(`Windows registry entry creation failed: ${error.message}`, 'red'),
+              );
               reject(error);
             } else {
               console.log(colorText('Windows registry entry created successfully!', 'green'));

@@ -1,6 +1,6 @@
 {
   "name": "mcp-chrome-bridge",
-  "version": "1.0.7",
+  "version": "1.0.9",
   "description": "Chrome Native-Messaging host (Node)",
   "main": "dist/index.js",
   "bin": {
@@ -15,7 +15,7 @@
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
     "register:dev": "node dist/scripts/register-dev.js",
-    "postinstall": "node -e \"try { require('fs').accessSync('debug.sh') } catch (e) { require('dist/scripts/postinstall.js') }\""
+    "postinstall": "node dist/scripts/postinstall.js"
   },
   "files": [
     "dist"
