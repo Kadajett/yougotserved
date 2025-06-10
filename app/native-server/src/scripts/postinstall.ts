@@ -8,43 +8,130 @@ import { colorText, tryRegisterUserLevelHost } from './utils';
 
 // Check if this script is run directly
 const isDirectRun = require.main === module;
-const isGlobalInstall = process.env.npm_config_global === 'true';
+
+// Detect global installation for both npm and pnpm
+function detectGlobalInstall(): boolean {
+  // npm uses npm_config_global
+  if (process.env.npm_config_global === 'true') {
+    return true;
+  }
+
+  // pnpm detection methods
+  // Method 1: Check if PNPM_HOME is set and current path contains it
+  if (process.env.PNPM_HOME && __dirname.includes(process.env.PNPM_HOME)) {
+    return true;
+  }
+
+  // Method 2: Check if we're in a global pnpm directory structure
+  // pnpm global packages are typically installed in ~/.local/share/pnpm/global/5/node_modules
+  const globalPnpmPatterns = ['/pnpm/global/', '/.local/share/pnpm/', '/pnpm-global/'];
+
+  if (globalPnpmPatterns.some((pattern) => __dirname.includes(pattern))) {
+    return true;
+  }
+
+  // Method 3: Check npm_config_prefix for pnpm
+  if (process.env.npm_config_prefix && __dirname.includes(process.env.npm_config_prefix)) {
+    return true;
+  }
+
+  return false;
+}
+
+const isGlobalInstall = detectGlobalInstall();
 
 /**
  * 尝试注册Native Messaging主机
  */
+/**
+ * 确保执行权限（无论是否为全局安装）
+ */
+async function ensureExecutionPermissions(): Promise<void> {
+  if (process.platform === 'win32') {
+    // Windows 平台处理
+    await ensureWindowsFilePermissions();
+    return;
+  }
+
+  // Unix/Linux 平台处理
+  const filesToCheck = [
+    path.join(__dirname, '..', 'index.js'),
+    path.join(__dirname, '..', 'run_host.sh'),
+    path.join(__dirname, '..', 'cli.js'),
+  ];
+
+  for (const filePath of filesToCheck) {
+    if (fs.existsSync(filePath)) {
+      try {
+        fs.chmodSync(filePath, '755');
+        console.log(
+          colorText(`✓ Set execution permissions for ${path.basename(filePath)}`, 'green'),
+        );
+      } catch (err: any) {
+        console.warn(
+          colorText(
+            `⚠️ Unable to set execution permissions for ${path.basename(filePath)}: ${err.message}`,
+            'yellow',
+          ),
+        );
+      }
+    } else {
+      console.warn(colorText(`⚠️ File not found: ${filePath}`, 'yellow'));
+    }
+  }
+}
+
+/**
+ * Windows 平台文件权限处理
+ */
+async function ensureWindowsFilePermissions(): Promise<void> {
+  const filesToCheck = [
+    path.join(__dirname, '..', 'index.js'),
+    path.join(__dirname, '..', 'run_host.bat'),
+    path.join(__dirname, '..', 'cli.js'),
+  ];
+
+  for (const filePath of filesToCheck) {
+    if (fs.existsSync(filePath)) {
+      try {
+        // 检查文件是否为只读，如果是则移除只读属性
+        const stats = fs.statSync(filePath);
+        if (!(stats.mode & parseInt('200', 8))) {
+          // 检查写权限
+          // 尝试移除只读属性
+          fs.chmodSync(filePath, stats.mode | parseInt('200', 8));
+          console.log(
+            colorText(`✓ Removed read-only attribute from ${path.basename(filePath)}`, 'green'),
+          );
+        }
+
+        // 验证文件可读性
+        fs.accessSync(filePath, fs.constants.R_OK);
+        console.log(
+          colorText(`✓ Verified file accessibility for ${path.basename(filePath)}`, 'green'),
+        );
+      } catch (err: any) {
+        console.warn(
+          colorText(
+            `⚠️ Unable to verify file permissions for ${path.basename(filePath)}: ${err.message}`,
+            'yellow',
+          ),
+        );
+      }
+    } else {
+      console.warn(colorText(`⚠️ File not found: ${filePath}`, 'yellow'));
+    }
+  }
+}
+
 async function tryRegisterNativeHost(): Promise<void> {
   try {
     console.log(colorText('Attempting to register Chrome Native Messaging host...', 'blue'));
 
+    // Always ensure execution permissions, regardless of installation type
+    await ensureExecutionPermissions();
+
     if (isGlobalInstall) {
-      // 1. Ensure native host has execution permissions
-      const launcherPath = path.join(__dirname, '..', 'index.js');
-      const wrapperScriptPath = path.join(
-        __dirname,
-        '..',
-        process.platform === 'win32' ? 'run_host.bat' : 'run_host.sh',
-      );
-
-      try {
-        // Set execution permissions on non-Windows platforms
-        if (process.platform !== 'win32') {
-          fs.chmodSync(launcherPath, '755');
-          console.log('✓ Set launcher execution permissions');
-
-          // Also set execution permissions for the wrapper script
-          if (fs.existsSync(wrapperScriptPath)) {
-            fs.chmodSync(wrapperScriptPath, '755');
-            console.log('✓ Set wrapper script execution permissions');
-          } else {
-            console.warn('⚠️ Wrapper script not found:', wrapperScriptPath);
-          }
-        }
-      } catch (err: any) {
-        console.warn('⚠️ Unable to set execution permissions:', err.message);
-        // Non-critical error, don't block
-      }
-
       // First try user-level installation (no elevated permissions required)
       const userLevelSuccess = await tryRegisterUserLevelHost();
 
@@ -140,6 +227,17 @@ function printManualInstructions(): void {
  */
 async function main(): Promise<void> {
   console.log(colorText(`Installing ${COMMAND_NAME}...`, 'green'));
+
+  // Debug information
+  console.log(colorText('Installation environment debug info:', 'blue'));
+  console.log(`  __dirname: ${__dirname}`);
+  console.log(`  npm_config_global: ${process.env.npm_config_global}`);
+  console.log(`  PNPM_HOME: ${process.env.PNPM_HOME}`);
+  console.log(`  npm_config_prefix: ${process.env.npm_config_prefix}`);
+  console.log(`  isGlobalInstall: ${isGlobalInstall}`);
+
+  // Always ensure execution permissions first
+  await ensureExecutionPermissions();
 
   // If global installation, try automatic registration
   if (isGlobalInstall) {

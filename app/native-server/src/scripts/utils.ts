@@ -101,13 +101,16 @@ export async function getMainPath(): Promise<string> {
  * 确保关键文件具有执行权限
  */
 export async function ensureExecutionPermissions(): Promise<void> {
-  if (process.platform === 'win32') {
-    // Windows 平台不需要设置执行权限
-    return;
-  }
-
   try {
     const packageDistDir = path.join(__dirname, '..');
+
+    if (process.platform === 'win32') {
+      // Windows 平台处理
+      await ensureWindowsFilePermissions(packageDistDir);
+      return;
+    }
+
+    // Unix/Linux 平台处理
     const filesToCheck = [
       path.join(packageDistDir, 'index.js'),
       path.join(packageDistDir, 'run_host.sh'),
@@ -135,6 +138,49 @@ export async function ensureExecutionPermissions(): Promise<void> {
     }
   } catch (error: any) {
     console.warn(colorText(`⚠️ Error ensuring execution permissions: ${error.message}`, 'yellow'));
+  }
+}
+
+/**
+ * Windows 平台文件权限处理
+ */
+async function ensureWindowsFilePermissions(packageDistDir: string): Promise<void> {
+  const filesToCheck = [
+    path.join(packageDistDir, 'index.js'),
+    path.join(packageDistDir, 'run_host.bat'),
+    path.join(packageDistDir, 'cli.js'),
+  ];
+
+  for (const filePath of filesToCheck) {
+    if (fs.existsSync(filePath)) {
+      try {
+        // 检查文件是否为只读，如果是则移除只读属性
+        const stats = fs.statSync(filePath);
+        if (!(stats.mode & parseInt('200', 8))) {
+          // 检查写权限
+          // 尝试移除只读属性
+          fs.chmodSync(filePath, stats.mode | parseInt('200', 8));
+          console.log(
+            colorText(`✓ Removed read-only attribute from ${path.basename(filePath)}`, 'green'),
+          );
+        }
+
+        // 验证文件可读性
+        fs.accessSync(filePath, fs.constants.R_OK);
+        console.log(
+          colorText(`✓ Verified file accessibility for ${path.basename(filePath)}`, 'green'),
+        );
+      } catch (err: any) {
+        console.warn(
+          colorText(
+            `⚠️ Unable to verify file permissions for ${path.basename(filePath)}: ${err.message}`,
+            'yellow',
+          ),
+        );
+      }
+    } else {
+      console.warn(colorText(`⚠️ File not found: ${filePath}`, 'yellow'));
+    }
   }
 }
 

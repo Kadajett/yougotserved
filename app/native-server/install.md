@@ -229,23 +229,77 @@ manifest.json
    - 用户级别安装需要对用户目录有写入权限
    - 系统级别安装需要管理员/root权限
 
-3. **修复执行权限问题（macOS/Linux）**
+3. **修复执行权限问题**
 
-   - 如果遇到 "Failed to start native messaging host."" 错误
-   - 运行以下命令修复执行权限：
+   **macOS/Linux 平台**：
+
+   **问题描述**：
+
+   - npm 安装通常会保留文件权限，但 pnpm 可能不会
+   - 可能遇到 "Permission denied" 或 "Native host has exited" 错误
+   - Chrome 扩展无法启动 native host 进程
+
+   **解决方案**：
+
+   a) **使用内置修复命令（推荐）**：
 
    ```bash
    chrome-mcp-bridge fix-permissions
    ```
 
-   - 或者手动设置权限：
+   b) **手动设置权限**：
 
    ```bash
    # 查找安装路径
    npm list -g chrome-mcp-bridge
+   # 或者对于 pnpm
+   pnpm list -g chrome-mcp-bridge
+
    # 设置执行权限（替换为实际路径）
    chmod +x /path/to/node_modules/chrome-mcp-bridge/run_host.sh
    chmod +x /path/to/node_modules/chrome-mcp-bridge/index.js
+   chmod +x /path/to/node_modules/chrome-mcp-bridge/cli.js
+   ```
+
+   **Windows 平台**：
+
+   **问题描述**：
+
+   - Windows 上 `.bat` 文件通常不需要执行权限，但可能遇到其他问题
+   - 文件可能被标记为只读
+   - 可能遇到 "Access denied" 或文件无法执行的错误
+
+   **解决方案**：
+
+   a) **使用内置修复命令（推荐）**：
+
+   ```cmd
+   chrome-mcp-bridge fix-permissions
+   ```
+
+   b) **手动检查文件属性**：
+
+   ```cmd
+   # 查找安装路径
+   npm list -g chrome-mcp-bridge
+
+   # 检查文件属性（在文件资源管理器中右键 -> 属性）
+   # 确保 run_host.bat 不是只读文件
+   ```
+
+   c) **重新安装并强制权限**：
+
+   ```bash
+   # 卸载
+   npm uninstall -g chrome-mcp-bridge
+   # 或 pnpm uninstall -g chrome-mcp-bridge
+
+   # 重新安装
+   npm install -g chrome-mcp-bridge
+   # 或 pnpm install -g chrome-mcp-bridge
+
+   # 如果仍有问题，运行权限修复
+   chrome-mcp-bridge fix-permissions
    ```
 
 4. 在 Windows 上，确保注册表访问没有被限制
