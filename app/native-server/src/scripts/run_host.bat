@@ -63,22 +63,83 @@ if not defined NODE_EXEC (
             )
         )
     )
+
+    REM Check for Volta (another Node.js version manager)
+    if exist "%LOCALAPPDATA%\Volta\bin\node.exe" (
+        if not defined NODE_EXEC (
+            set "NODE_EXEC=%LOCALAPPDATA%\Volta\bin\node.exe"
+            echo Found Volta node at %LOCALAPPDATA%\Volta\bin\node.exe >> "%WRAPPER_LOG%"
+        )
+    )
+
+    REM Check for fnm (Fast Node Manager)
+    if exist "%LOCALAPPDATA%\fnm_multishells" (
+        for /f "delims=" %%v in ('dir /b /ad "%LOCALAPPDATA%\fnm_multishells" 2^>nul ^| sort /r') do (
+            if not defined NODE_EXEC if exist "%LOCALAPPDATA%\fnm_multishells\%%v\node.exe" (
+                set "NODE_EXEC=%LOCALAPPDATA%\fnm_multishells\%%v\node.exe"
+                echo Found fnm node at %LOCALAPPDATA%\fnm_multishells\%%v\node.exe >> "%WRAPPER_LOG%"
+                goto :node_found
+            )
+        )
+    )
+
+    REM Check for Scoop installation
+    if exist "%USERPROFILE%\scoop\apps\nodejs\current\node.exe" (
+        if not defined NODE_EXEC (
+            set "NODE_EXEC=%USERPROFILE%\scoop\apps\nodejs\current\node.exe"
+            echo Found Scoop node at %USERPROFILE%\scoop\apps\nodejs\current\node.exe >> "%WRAPPER_LOG%"
+        )
+    )
+
+    REM Check for Chocolatey installation
+    if exist "%ProgramData%\chocolatey\lib\nodejs\tools\node.exe" (
+        if not defined NODE_EXEC (
+            set "NODE_EXEC=%ProgramData%\chocolatey\lib\nodejs\tools\node.exe"
+            echo Found Chocolatey node at %ProgramData%\chocolatey\lib\nodejs\tools\node.exe >> "%WRAPPER_LOG%"
+        )
+    )
 )
 :node_found
 
 if not defined NODE_EXEC (
     echo ERROR: Node.js executable not found! >> "%WRAPPER_LOG%"
     echo Searched 'where node.exe' and common installation paths. >> "%WRAPPER_LOG%"
+    echo Searched paths: >> "%WRAPPER_LOG%"
+    echo   - %ProgramFiles%\nodejs\node.exe >> "%WRAPPER_LOG%"
+    echo   - %ProgramFiles(x86)%\nodejs\node.exe >> "%WRAPPER_LOG%"
+    echo   - %LOCALAPPDATA%\Programs\nodejs\node.exe >> "%WRAPPER_LOG%"
+    echo   - %APPDATA%\nvm\* >> "%WRAPPER_LOG%"
+    echo   - %LOCALAPPDATA%\Volta\bin\node.exe >> "%WRAPPER_LOG%"
+    echo   - %LOCALAPPDATA%\fnm_multishells\* >> "%WRAPPER_LOG%"
+    echo   - %USERPROFILE%\scoop\apps\nodejs\current\node.exe >> "%WRAPPER_LOG%"
+    echo   - %ProgramData%\chocolatey\lib\nodejs\tools\node.exe >> "%WRAPPER_LOG%"
+    echo Please install Node.js or ensure it's in your PATH. >> "%WRAPPER_LOG%"
+    echo You can download Node.js from: https://nodejs.org/ >> "%WRAPPER_LOG%"
     exit /B 1
 )
 
 echo Using Node executable: %NODE_EXEC% >> "%WRAPPER_LOG%"
 echo Node version found by script: >> "%WRAPPER_LOG%"
 call "%NODE_EXEC%" -v >> "%WRAPPER_LOG%" 2>>&1
+
+REM Verify Node.js script exists
+if not exist "%NODE_SCRIPT%" (
+    echo ERROR: Node.js script not found: %NODE_SCRIPT% >> "%WRAPPER_LOG%"
+    echo Please ensure the native host is properly installed. >> "%WRAPPER_LOG%"
+    exit /B 1
+)
+
+echo Node.js script exists: %NODE_SCRIPT% >> "%WRAPPER_LOG%"
 echo Executing: "%NODE_EXEC%" "%NODE_SCRIPT%" >> "%WRAPPER_LOG%"
+echo ==================== Starting Native Host ==================== >> "%WRAPPER_LOG%"
 
 REM Execute the Node.js script. Stdout goes to Chrome. Stderr goes to the log file.
 call "%NODE_EXEC%" "%NODE_SCRIPT%" 2>> "%STDERR_LOG%"
+set "EXIT_CODE=%ERRORLEVEL%"
+
+echo ==================== Native Host Exited ==================== >> "%WRAPPER_LOG%"
+echo Exit code: %EXIT_CODE% >> "%WRAPPER_LOG%"
+echo Execution completed at %DATE% %TIME% >> "%WRAPPER_LOG%"
 
 endlocal
-exit /B %ERRORLEVEL%
+exit /B %EXIT_CODE%

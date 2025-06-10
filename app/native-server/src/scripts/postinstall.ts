@@ -24,7 +24,11 @@ function detectGlobalInstall(): boolean {
 
   // Method 2: Check if we're in a global pnpm directory structure
   // pnpm global packages are typically installed in ~/.local/share/pnpm/global/5/node_modules
-  const globalPnpmPatterns = ['/pnpm/global/', '/.local/share/pnpm/', '/pnpm-global/'];
+  // Windows: %APPDATA%\pnpm\global\5\node_modules
+  const globalPnpmPatterns =
+    process.platform === 'win32'
+      ? ['\\pnpm\\global\\', '\\pnpm-global\\', '\\AppData\\Roaming\\pnpm\\']
+      : ['/pnpm/global/', '/.local/share/pnpm/', '/pnpm-global/'];
 
   if (globalPnpmPatterns.some((pattern) => __dirname.includes(pattern))) {
     return true;
@@ -33,6 +37,20 @@ function detectGlobalInstall(): boolean {
   // Method 3: Check npm_config_prefix for pnpm
   if (process.env.npm_config_prefix && __dirname.includes(process.env.npm_config_prefix)) {
     return true;
+  }
+
+  // Method 4: Windows-specific global installation paths
+  if (process.platform === 'win32') {
+    const windowsGlobalPatterns = [
+      '\\npm\\node_modules\\',
+      '\\AppData\\Roaming\\npm\\node_modules\\',
+      '\\Program Files\\nodejs\\node_modules\\',
+      '\\nodejs\\node_modules\\',
+    ];
+
+    if (windowsGlobalPatterns.some((pattern) => __dirname.includes(pattern))) {
+      return true;
+    }
   }
 
   return false;

@@ -22,7 +22,19 @@ program
     try {
       // Detect if running with root/administrator privileges
       const isRoot = process.getuid && process.getuid() === 0; // Unix/Linux/Mac
-      const isAdmin = process.platform === 'win32' && require('is-admin')(); // Windows requires additional package
+
+      let isAdmin = false;
+      if (process.platform === 'win32') {
+        try {
+          isAdmin = require('is-admin')(); // Windows requires additional package
+        } catch (error) {
+          console.warn(
+            colorText('Warning: Unable to detect administrator privileges on Windows', 'yellow'),
+          );
+          isAdmin = false;
+        }
+      }
+
       const hasElevatedPermissions = isRoot || isAdmin;
 
       // If --system option is specified or running with root/administrator privileges

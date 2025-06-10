@@ -200,6 +200,28 @@ export async function createManifestContent(): Promise<any> {
 }
 
 /**
+ * 验证Windows注册表项是否存在
+ */
+function verifyWindowsRegistryEntry(registryKey: string, expectedPath: string): boolean {
+  if (os.platform() !== 'win32') {
+    return true; // 非Windows平台跳过验证
+  }
+
+  try {
+    const result = execSync(`reg query "${registryKey}" /ve`, { encoding: 'utf8', stdio: 'pipe' });
+    const lines = result.split('\n');
+    for (const line of lines) {
+      if (line.includes('REG_SZ') && line.includes(expectedPath.replace(/\\/g, '\\\\'))) {
+        return true;
+      }
+    }
+    return false;
+  } catch (error) {
+    return false;
+  }
+}
+
+/**
  * 尝试注册用户级别的Native Messaging主机
  */
 export async function tryRegisterUserLevelHost(): Promise<boolean> {
@@ -226,15 +248,25 @@ export async function tryRegisterUserLevelHost(): Promise<boolean> {
     if (os.platform() === 'win32') {
       const registryKey = `HKCU\\Software\\Google\\Chrome\\NativeMessagingHosts\\${HOST_NAME}`;
       try {
-        execSync(
-          `reg add "${registryKey}" /ve /t REG_SZ /d "${manifestPath.replace(/\\/g, '\\\\')}" /f`,
-          { stdio: 'ignore' },
-        );
-        console.log(colorText('✓ Successfully created Windows registry entry', 'green'));
+        // 确保路径使用正确的转义格式
+        const escapedPath = manifestPath.replace(/\\/g, '\\\\');
+        const regCommand = `reg add "${registryKey}" /ve /t REG_SZ /d "${escapedPath}" /f`;
+
+        console.log(colorText(`Executing registry command: ${regCommand}`, 'blue'));
+        execSync(regCommand, { stdio: 'pipe' });
+
+        // 验证注册表项是否创建成功
+        if (verifyWindowsRegistryEntry(registryKey, manifestPath)) {
+          console.log(colorText('✓ Successfully created Windows registry entry', 'green'));
+        } else {
+          console.log(colorText('⚠️ Registry entry created but verification failed', 'yellow'));
+        }
       } catch (error: any) {
         console.log(
           colorText(`⚠️ Unable to create Windows registry entry: ${error.message}`, 'yellow'),
         );
+        console.log(colorText(`Registry key: ${registryKey}`, 'yellow'));
+        console.log(colorText(`Manifest path: ${manifestPath}`, 'yellow'));
         return false; // Windows上如果注册表项创建失败，整个注册过程应该视为失败
       }
     }
@@ -301,7 +333,7 @@ export async function registerWithElevatedPermissions(): Promise<void> {
     // 准备命令
     const command =
       os.platform() === 'win32'
-        ? `mkdir -p "${path.dirname(manifestPath)}" && copy "${tempManifestPath}" "${manifestPath}"`
+        ? `if not exist "${path.dirname(manifestPath)}" mkdir "${path.dirname(manifestPath)}" && copy "${tempManifestPath}" "${manifestPath}"`
         : `mkdir -p "${path.dirname(manifestPath)}" && cp "${tempManifestPath}" "${manifestPath}" && chmod 644 "${manifestPath}"`;
 
     if (hasElevatedPermissions) {
@@ -347,17 +379,29 @@ export async function registerWithElevatedPermissions(): Promise<void> {
     // 6. Windows特殊处理 - 设置系统级注册表
     if (os.platform() === 'win32') {
       const registryKey = `HKLM\\Software\\Google\\Chrome\\NativeMessagingHosts\\${HOST_NAME}`;
-      const regCommand = `reg add "${registryKey}" /ve /t REG_SZ /d "${manifestPath.replace(/\\/g, '\\\\')}" /f`;
+      // 确保路径使用正确的转义格式
+      const escapedPath = manifestPath.replace(/\\/g, '\\\\');
+      const regCommand = `reg add "${registryKey}" /ve /t REG_SZ /d "${escapedPath}" /f`;
+
+      console.log(colorText(`Creating system registry entry: ${registryKey}`, 'blue'));
+      console.log(colorText(`Manifest path: ${manifestPath}`, 'blue'));
 
       if (hasElevatedPermissions) {
         // 已经有管理员权限，直接执行注册表命令
         try {
-          execSync(regCommand, { stdio: 'ignore' });
-          console.log(colorText('Windows registry entry created successfully!', 'green'));
+          execSync(regCommand, { stdio: 'pipe' });
+
+          // 验证注册表项是否创建成功
+          if (verifyWindowsRegistryEntry(registryKey, manifestPath)) {
+            console.log(colorText('Windows registry entry created successfully!', 'green'));
+          } else {
+            console.log(colorText('⚠️ Registry entry created but verification failed', 'yellow'));
+          }
         } catch (error: any) {
           console.error(
             colorText(`Windows registry entry creation failed: ${error.message}`, 'red'),
           );
+          console.error(colorText(`Command: ${regCommand}`, 'red'));
           throw error;
         }
       } else {
@@ -368,6 +412,7 @@ export async function registerWithElevatedPermissions(): Promise<void> {
               console.error(
                 colorText(`Windows registry entry creation failed: ${error.message}`, 'red'),
               );
+              console.error(colorText(`Command: ${regCommand}`, 'red'));
               reject(error);
             } else {
               console.log(colorText('Windows registry entry created successfully!', 'green'));
