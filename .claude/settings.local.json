@@ -4,7 +4,8 @@
       "WebFetch(domain:github.com)",
       "mcp__codex__codex",
       "Skill(use-codex)",
-      "Bash(npm run type-check)"
+      "Bash(npm run type-check)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
