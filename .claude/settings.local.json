@@ -22,7 +22,9 @@
       "Bash(curl:*)",
       "Bash(find:*)",
       "Bash(node:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "WebSearch",
+      "Bash(xargs cat:*)"
     ],
     "deny": [],
     "ask": []
