@@ -559,18 +559,16 @@ interface FrameHitTestResponse {
 
 **目标**: 完善体验，增加高级能力
 
-| 序号 | 任务                                            | 预估工作量 | 依赖    | 功能点 |
-| ---- | ----------------------------------------------- | ---------- | ------- | ------ |
-| 4.1  | iframe 支持 (allFrames 注入 + postMessage 桥接) | 6h         | Phase 2 | A6     |
-| 4.2  | 智能对齐线与吸附                                | 4h         | Phase 2 | D3     |
-| 4.3  | 测距标注                                        | 3h         | 4.2     | B7     |
-| 4.4  | 组件实例识别 (结构指纹 + Worker 计算)           | 4h         | Phase 2 | A8     |
-| 4.5  | 多选与框选                                      | 4h         | Phase 2 | A7     |
-| 4.6  | CSS 面板 - 样式来源追踪                         | 4h         | Phase 3 | C8     |
-| 4.7  | CSS 面板 - class 编辑                           | 3h         | 4.6     | C9     |
-| 4.8  | HMR 一致性校验 (依赖结果反馈)                   | 3h         | 3.10    | F6     |
-| 4.9  | 位置/尺寸手柄                                   | 4h         | Phase 2 | D2     |
-| 4.10 | 按需渲染优化 (静止时停止 tick)                  | 2h         | Phase 1 | B6     |
+| 序号 | 任务                                  | 预估工作量 | 依赖    | 功能点 |
+| ---- | ------------------------------------- | ---------- | ------- | ------ |
+| 4.2  | 智能对齐线与吸附                      | 4h         | Phase 2 | D3     |
+| 4.3  | 测距标注                              | 3h         | 4.2     | B7     |
+| 4.4  | 组件实例识别 (结构指纹 + Worker 计算) | 4h         | Phase 2 | A8     |
+| 4.6  | CSS 面板 - 样式来源追踪               | 4h         | Phase 3 | C8     |
+| 4.7  | CSS 面板 - class 编辑                 | 3h         | 4.6     | C9     |
+| 4.8  | HMR 一致性校验 (依赖结果反馈)         | 3h         | 3.10    | F6     |
+| 4.9  | 位置/尺寸手柄                         | 4h         | Phase 2 | D2     |
+| 4.10 | 按需渲染优化 (静止时停止 tick)        | 2h         | Phase 1 | B6     |
 
 ### Phase 5: 工程化与增强 (P2-P3)
 
@@ -583,18 +581,19 @@ interface FrameHitTestResponse {
 | 5.3  | 性能监控集成 (FPS/内存)                         | 3h         | Phase 4 | G4     |
 | 5.4  | Design System Tokens 集成                       | 4h         | Phase 3 | C10    |
 | 5.5  | Group/Stack 结构化操作                          | 4h         | Phase 2 | D5     |
-| 5.6  | 文档与示例                                      | 3h         | Phase 4 | -      |
 
-### Phase 6: 精准模式 (P3，可选)
+### Phase 6: 精准模式 (P3，可选) ⏭️ 跳过
 
 **目标**: 支持 Vite 插件实现精准定位
 
-| 序号 | 任务                                       | 预估工作量 | 依赖    | 功能点 |
-| ---- | ------------------------------------------ | ---------- | ------- | ------ |
-| 6.1  | Payload schema 增加 debugSource 版本化字段 | 2h         | Phase 1 | -      |
-| 6.2  | Vite 插件开发 (注入 data-source-\*)        | 6h         | 6.1     | -      |
-| 6.3  | 插件安装文档与 npm 发布                    | 2h         | 6.2     | -      |
-| 6.4  | UI 检测 Vite 插件并提示安装                | 2h         | 6.2     | -      |
+**状态**: 跳过 - 该阶段为可选功能，暂不实现
+
+| 序号 | 任务                                       | 预估工作量 | 依赖    | 功能点 | 状态    |
+| ---- | ------------------------------------------ | ---------- | ------- | ------ | ------- |
+| 6.1  | Payload schema 增加 debugSource 版本化字段 | 2h         | Phase 1 | -      | ⏭️ 跳过 |
+| 6.2  | Vite 插件开发 (注入 data-source-\*)        | 6h         | 6.1     | -      | ⏭️ 跳过 |
+| 6.3  | 插件安装文档与 npm 发布                    | 2h         | 6.2     | -      | ⏭️ 跳过 |
+| 6.4  | UI 检测 Vite 插件并提示安装                | 2h         | 6.2     | -      | ⏭️ 跳过 |
 
 ---
 
@@ -725,75 +724,7 @@ interface FrameHitTestResponse {
 
 ### Phase 0: 工程准备 ✅ 完成
 
-**完成时间**: 2024-12
-
-**决策记录**:
-
-- 采用 WXT 的 `defineUnlistedScript` 进行 TypeScript 构建
-- 输出为独立的 `web-editor-v2.js` 文件（当前 47.75KB）
-- 使用 V2 版本化 action 名称（后缀 `_v2`）实现 V1/V2 共存
-
-**创建的文件**:
-
-- `common/web-editor-types.ts` - 共享类型定义，包含 `WEB_EDITOR_V2_ACTIONS`、`WebEditorV2Api` 等
-
----
-
 ### Phase 1.1-1.2: 模块化结构与 Shadow DOM 隔离 ✅ 完成
-
-**目录结构**:
-
-```
-entrypoints/
-├── web-editor-v2.ts                    # 入口点 (defineUnlistedScript)
-└── web-editor-v2/
-    ├── constants.ts                    # 常量配置
-    ├── utils/
-    │   └── disposables.ts              # 资源清理工具 (Disposer 类)
-    ├── ui/
-    │   └── shadow-host.ts              # Shadow DOM 隔离宿主
-    ├── core/
-    │   ├── editor.ts                   # 主协调器 (生命周期管理)
-    │   ├── message-listener.ts         # Background 通信
-    │   ├── event-controller.ts         # 事件拦截与模式控制
-    │   └── position-tracker.ts         # 滚动/resize 位置同步
-    ├── overlay/
-    │   └── canvas-overlay.ts           # Canvas 渲染层
-    └── selection/
-        └── selection-engine.ts         # 智能选中引擎
-```
-
-**关键实现**:
-
-#### `constants.ts`
-
-- `WEB_EDITOR_V2_VERSION = 2`
-- `WEB_EDITOR_V2_HOST_ID = '__mcp_web_editor_v2_host__'`
-- `WEB_EDITOR_V2_Z_INDEX = 2147483647` (最大 z-index)
-- 颜色定义: hover (#3b82f6), selected (#8b5cf6)
-
-#### `utils/disposables.ts` - Disposer 类
-
-```typescript
-class Disposer {
-  add(dispose: DisposeFn): void; // 注册清理函数
-  listen(target, type, listener, options); // 自动移除的事件监听
-  observeResize(target, callback); // 自动断开的 ResizeObserver
-  observeMutation(target, callback); // 自动断开的 MutationObserver
-  requestAnimationFrame(callback); // 自动取消的 rAF
-  dispose(): void; // LIFO 顺序清理
-  get isDisposed(): boolean;
-}
-```
-
-#### `ui/shadow-host.ts` - Shadow DOM 宿主
-
-- 创建固定定位的 host 元素，挂载到 `document.documentElement`
-- 使用 `attachShadow({ mode: 'open' })` 创建 Shadow Root
-- 提供 `overlayRoot`（用于 Canvas）和 `uiRoot`（用于 UI 面板）
-- 事件隔离：阻止 UI 事件冒泡到页面（pointer/mouse/keyboard/touch/focus 等）
-- 提供 `isOverlayElement(node)` 判断节点是否属于编辑器
-- 内置简单的状态面板 UI（标题 + Exit 按钮 + 状态指示）
 
 ---
 
@@ -809,20 +740,6 @@ class Disposer {
 - 绘制 hover 矩形（蓝色虚线 + 8% 填充）
 - 绘制 selection 矩形（紫色实线 + 12% 填充）
 - 像素对齐实现清晰线条
-
-**接口**:
-
-```typescript
-interface CanvasOverlay {
-  canvas: HTMLCanvasElement;
-  markDirty(): void; // 标记需要重绘
-  render(): void; // 立即渲染
-  clear(): void; // 清除所有
-  setHoverRect(rect: ViewportRect | null); // 设置 hover 框
-  setSelectionRect(rect: ViewportRect | null); // 设置选中框
-  dispose(): void;
-}
-```
 
 ---
 
@@ -848,17 +765,6 @@ interface CanvasOverlay {
 - keyboard: down, up, press
 - touch: start, move, end, cancel
 
-**修饰键支持**:
-
-```typescript
-interface EventModifiers {
-  alt: boolean; // Alt + Click 触发上钻
-  shift: boolean; // 预留多选
-  ctrl: boolean;
-  meta: boolean;
-}
-```
-
 ---
 
 ### Phase 1.5: rAF 驱动的交互引擎 ✅ 完成
@@ -873,21 +779,7 @@ interface EventModifiers {
 - 子像素容差过滤（`RECT_EPSILON = 0.5`）避免抖动
 - 只在位置实际变化时触发回调
 
-**接口**:
-
-```typescript
-interface PositionTracker {
-  setHoverElement(element: Element | null): void;
-  setSelectionElement(element: Element | null): void;
-  forceUpdate(): void; // 立即同步更新
-  dispose(): void;
-}
 ```
-
-**性能优化**:
-
-- 在 `editor.ts` 中设置元素后调用 `forceUpdate()` 避免额外 rAF 延迟
-- 在位置更新回调中调用 `canvasOverlay.render()` 合并到同一帧
 
 ---
 
@@ -944,16 +836,6 @@ interface PositionTracker {
 - Hover 使用快速的 `elementFromPoint`（保持 60FPS）
 - Click 选择使用完整评分（可接受更高计算开销）
 
-**接口**:
-
-```typescript
-interface SelectionEngine {
-  findBestTarget(x, y, modifiers): Element | null;
-  getCandidatesAtPoint(x, y): SelectionCandidate[];
-  getParentCandidate(current): Element | null;
-  dispose(): void;
-}
-```
 
 ---
 
@@ -962,7 +844,9 @@ interface SelectionEngine {
 **生命周期管理**:
 
 ```
+
 start() 初始化顺序:
+
 1. mountShadowHost() → shadowHost
 2. createCanvasOverlay() → canvasOverlay
 3. createSelectionEngine() → selectionEngine
@@ -972,6 +856,7 @@ start() 初始化顺序:
 7. createToolbar() → toolbar
 
 stop() 清理顺序 (逆序):
+
 1. toolbar.dispose()
 2. transactionManager.dispose()
 3. positionTracker.dispose()
@@ -979,49 +864,38 @@ stop() 清理顺序 (逆序):
 5. selectionEngine.dispose()
 6. canvasOverlay.dispose()
 7. shadowHost.dispose()
+
 ```
 
 **数据流**:
 
 ```
+
 用户操作 → EventController
-           ├─ onHover(element) → PositionTracker.setHoverElement()
-           │                     → forceUpdate() → onPositionUpdate()
-           │                                       → CanvasOverlay.setHoverRect()
-           │                                       → CanvasOverlay.render()
-           │
-           └─ onSelect(element, modifiers) → PositionTracker.setSelectionElement()
-                                            → forceUpdate() → onPositionUpdate()
-                                                              → CanvasOverlay.setSelectionRect()
-                                                              → CanvasOverlay.render()
+├─ onHover(element) → PositionTracker.setHoverElement()
+│ → forceUpdate() → onPositionUpdate()
+│ → CanvasOverlay.setHoverRect()
+│ → CanvasOverlay.render()
+│
+└─ onSelect(element, modifiers) → PositionTracker.setSelectionElement()
+→ forceUpdate() → onPositionUpdate()
+→ CanvasOverlay.setSelectionRect()
+→ CanvasOverlay.render()
 
 滚动/Resize → PositionTracker
-              → rAF 节流
-              → getBoundingClientRect()
-              → onPositionUpdate()
-              → CanvasOverlay.setHoverRect/setSelectionRect()
-              → CanvasOverlay.render()
+→ rAF 节流
+→ getBoundingClientRect()
+→ onPositionUpdate()
+→ CanvasOverlay.setHoverRect/setSelectionRect()
+→ CanvasOverlay.render()
 
 Toolbar Apply → applyLatestTransaction()
-                → sendTransactionToAgent(tx)
-                → chrome.runtime.sendMessage(WEB_EDITOR_APPLY)
+→ sendTransactionToAgent(tx)
+→ chrome.runtime.sendMessage(WEB_EDITOR_APPLY)
 
 TransactionManager onChange → Toolbar.setHistory(undoCount, redoCount)
+
 ```
-
----
-
-### 构建产物
-
-| 版本       | 文件大小 | 包含模块                                  |
-| ---------- | -------- | ----------------------------------------- |
-| Phase 1.3  | 21.05 KB | shadow-host, canvas-overlay               |
-| Phase 1.4  | 28.21 KB | + event-controller                        |
-| Phase 1.5  | 33.36 KB | + position-tracker                        |
-| Phase 1.6  | 47.75 KB | + selection-engine                        |
-| Phase 1.7  | 68.81 KB | + locator, transaction-manager            |
-| Phase 1.10 | 89.65 KB | + payload-builder, toolbar (Phase 1 完成) |
-
 ---
 
 ### Phase 1.7: Transaction Manager ✅ 完成
@@ -1047,61 +921,6 @@ TransactionManager onChange → Toolbar.setHistory(undoCount, redoCount)
 - 键盘快捷键支持（Ctrl/Cmd+Z 撤销，Ctrl/Cmd+Shift+Z/Y 重做）
 - 失败安全的 Undo/Redo（apply 失败不移动栈）
 
-**接口**:
-
-```typescript
-// Locator
-interface ElementLocator {
-  selectors: string[]; // 多候选 CSS selector
-  fingerprint: string; // 结构指纹
-  path: number[]; // DOM 树路径
-  shadowHostChain?: string[]; // Shadow DOM host chain
-}
-
-function createElementLocator(element: Element): ElementLocator;
-function locateElement(locator: ElementLocator): Element | null;
-
-// Transaction Manager
-interface StyleTransactionHandle {
-  id: string;
-  property: string;
-  targetLocator: ElementLocator;
-  set(value: string): void; // 实时预览
-  commit(options?): Transaction | null;
-  rollback(): void; // 回滚到原值
-}
-
-interface TransactionManager {
-  beginStyle(target, property): StyleTransactionHandle | null;
-  applyStyle(target, property, value, options?): Transaction | null;
-  recordStyle(locator, property, before, after, options?): Transaction | null;
-  undo(): Transaction | null;
-  redo(): Transaction | null;
-  canUndo(): boolean;
-  canRedo(): boolean;
-  getUndoStack(): readonly Transaction[];
-  getRedoStack(): readonly Transaction[];
-  clear(): void;
-  dispose(): void;
-}
-```
-
-**事件回调**:
-
-```typescript
-interface TransactionChangeEvent {
-  action: 'push' | 'merge' | 'undo' | 'redo' | 'clear' | 'rollback';
-  transaction: Transaction | null;
-  undoCount: number;
-  redoCount: number;
-}
-```
-
-**安全验证**:
-
-1. 唯一性验证: locateElement 时检查 selector 是否仍唯一匹配
-2. 指纹验证: 确认找到的元素 tag/id 与存储的一致
-3. 失败回滚: Undo/Redo 失败时恢复栈状态，不改变历史
 
 ---
 
@@ -1115,26 +934,6 @@ interface TransactionChangeEvent {
 - 提取 React/Vue 组件 debug 信息
 - 检测技术栈 (Tailwind, React, Vue)
 - 生成样式变更描述
-
-**接口**:
-
-```typescript
-interface ApplyPayload {
-  pageUrl: string;
-  targetFile?: string; // 组件源文件路径
-  fingerprint: ElementFingerprint;
-  techStackHint?: string[]; // ['React', 'Tailwind', etc.]
-  instruction: ApplyInstruction;
-  locator?: ElementLocator;
-  selectorCandidates?: string[];
-  debugSource?: DebugSource; // React/Vue 组件信息
-  operation?: StyleOperation; // 样式变更详情
-}
-
-function buildApplyPayload(tx: Transaction, options?): ApplyPayload | null;
-function sendApplyPayload(payload: ApplyPayload): Promise<unknown>;
-function sendTransactionToAgent(tx: Transaction, options?): Promise<unknown>;
-```
 
 **技术栈检测**:
 
@@ -1165,19 +964,6 @@ Payload Builder 直接调用 `chrome.runtime.sendMessage()` 发送到 background
 - 操作状态反馈 (idle/applying/success/error)
 - 自动重置状态提示 (2.4s 后)
 
-**接口**:
-
-```typescript
-type ToolbarStatus = 'idle' | 'applying' | 'success' | 'error';
-
-interface Toolbar {
-  setHistory(undoCount: number, redoCount: number): void;
-  setStatus(status: ToolbarStatus, message?: string): void;
-  dispose(): void;
-}
-
-function createToolbar(options: ToolbarOptions): Toolbar;
-```
 
 **集成**:
 
@@ -1198,6 +984,1479 @@ function createToolbar(options: ToolbarOptions): Toolbar;
 ### 已知限制 (Phase 1)
 
 1. **祖先不可见检测**: 当前只检查元素自身的 visibility/opacity，不检查祖先链
-2. **DOM 变更后位置**: 只在 scroll/resize 时更新位置，DOM 变更（非 scroll）不会自动更新
+2. ~~**DOM 变更后位置**: 只在 scroll/resize 时更新位置，DOM 变更（非 scroll）不会自动更新~~ (Phase 2.8 已解决)
 3. **连续上钻**: Alt+Click 只在首次选择时生效，已选中状态下需先 ESC 再重新选择
 4. **ESC 在 UI 内**: 焦点在编辑器 UI 内时按 ESC 不会取消选中（事件被 UI 拦截）
+
+---
+
+### Phase 2: 核心交互 (进行中)
+
+**开始时间**: 2024-12
+
+#### Phase 2.1: Shadow DOM 深度选择 ✅ 完成
+
+**文件改动**:
+- `selection/selection-engine.ts`: 新增 `findBestTargetFromEvent()` 方法
+- `core/event-controller.ts`: 扩展 `findTargetForSelect` 签名支持 event 参数
+- `core/editor.ts`: 使用新的 event-aware 方法
+
+**核心功能**:
+- 使用 `event.composedPath()` 访问 Shadow DOM 内部元素
+- Ctrl/Cmd + Click: 穿透到最内层可见元素 (drill-in)
+- Alt + Click: 上钻到父元素 (drill-up，Phase 1 已有)
+- composedPath 候选与 elementsFromPoint 候选合并评分
+
+**构建产物**: 89.65KB → 94KB (+4.35KB)
+
+---
+
+#### Phase 2.3: 修饰键交互 ✅ 完成 (与 2.1 合并实现)
+
+**实现语义**:
+- **Ctrl/Cmd + Click**: 选择 composedPath 中最内层可见元素
+- **Alt + Click**: 选择当前最佳目标的第一个非 wrapper 父元素
+- **同时按下**: Ctrl/Cmd 优先（更精确的命中）
+
+---
+
+#### Phase 2.8: Observer 同步 ✅ 完成
+
+**文件改动**:
+- `core/position-tracker.ts`: 新增 ResizeObserver 和 MutationObserver 支持
+
+**核心功能**:
+- **ResizeObserver**: 监听选中元素尺寸变化（CSS transitions、flex/grid reflow 等）
+- **MutationObserver**: 监听 DOM 结构变化（元素移除、重排等）
+- Shadow DOM 支持：同时观察 ShadowRoot（如果元素在 Shadow DOM 内）
+- 性能优化：
+  - 只观察选中元素（不观察 hover，因为变化太频繁）
+  - MutationObserver 仅 `childList + subtree`，不观察 attributes
+  - rAF 合并避免 observer 风暴
+
+**构建产物**: 94KB → 95.39KB (+1.39KB)
+
+---
+
+#### Phase 2.2: 面包屑导航 UI ✅ 完成
+
+**文件改动**:
+- `ui/breadcrumbs.ts`: 新增面包屑组件
+- `ui/shadow-host.ts`: 新增面包屑 CSS 样式
+- `core/editor.ts`: 集成面包屑组件
+
+**核心功能**:
+- 显示选中元素的祖先链（从外到内）
+- 跨 Shadow DOM 边界时显示 "⬡" 分隔符
+- 普通父子关系显示 "›" 分隔符
+- 点击面包屑项可选中对应祖先元素
+- 每个面包屑显示 tag + id/class（自动截断）
+
+**交互设计**:
+- 固定在工具栏下方（top: 72px）
+- 玻璃拟态背景，可水平滚动
+- 当前选中项高亮显示
+- 选择空或取消选中时自动隐藏
+
+**构建产物**: 95.39KB → 102.93KB (+7.54KB)
+
+---
+
+#### Phase 2.9: Selector 候选生成器 ✅ 完成
+
+**文件改动**:
+- `core/locator.ts`: 增强 selector 候选生成逻辑
+
+**核心功能**:
+- **多候选采集**: 同一策略可产出多个候选（data-attr、class 组合等）
+- **aria-label 支持**: 纳入 UNIQUE_DATA_ATTRS 以提高可访问性元素匹配率
+- **anchor + relPath 策略**: 找到唯一祖先（id/data-*）+ 相对路径作为第 5 个候选
+- **性能控制**: MAX_CANDIDATES = 5，early stop 策略
+
+**候选优先级**:
+1. ID 选择器（#id）
+2. Data 属性选择器（[data-testid]、[aria-label] 等）
+3. Class 选择器（.class、tag.class、.a.b 组合）
+4. 结构路径选择器（body > div > span:nth-of-type(2)）
+5. 锚点+相对路径选择器（[data-testid="panel"] div > button）
+
+**新增常量**:
+- `ANCHOR_DATA_ATTRS`: 用于祖先锚点的稳定数据属性
+- `MAX_SELECTOR_CLASS_COUNT = 24`: 限制扫描的 class 数量
+- `MAX_ANCHOR_DEPTH = 20`: 限制祖先搜索深度
+
+**构建产物**: 102.93KB → 107.33KB (+4.4KB)
+
+---
+
+#### Phase 2.7: 文本直接编辑 ✅ 完成
+
+**文件改动**:
+- `core/event-controller.ts`: 新增 `editing` 模式、双击处理、编辑元素事件隔离
+- `core/transaction-manager.ts`: 新增 `recordText()` 方法和文本事务支持
+- `core/payload-builder.ts`: 扩展 `buildApplyPayload()` 支持文本事务
+- `core/editor.ts`: 新增 EditSession 管理、文本编辑生命周期
+
+**核心功能**:
+- **双击进入编辑**: 双击文本元素进入 contentEditable 模式
+- **ESC 取消编辑**: 按 ESC 恢复原始文本并退出编辑模式
+- **Blur 提交编辑**: 失去焦点时提交文本变更
+- **事务记录**: 文本变更记录为 `type: 'text'` 事务，支持 Undo/Redo
+- **Apply 支持**: 文本事务可通过 Apply to Code 发送给 Agent
+
+**编辑目标限制**:
+- 仅支持 HTMLElement（非 input/textarea）
+- 仅支持无子元素的文本节点（`childElementCount === 0`）
+- 编辑后自动规范化为纯文本（`element.textContent = afterText`）
+
+**事件隔离**:
+- 编辑模式下允许编辑元素内的原生交互（键盘输入、文本选择等）
+- 使用 `composedPath()` 进行 Shadow DOM 安全的事件来源检测
+- TransactionManager 的 Ctrl/Cmd+Z 在编辑元素内失效，允许原生 contentEditable undo
+
+**状态机扩展**:
+```
+
+EventControllerMode: 'hover' | 'selecting' | 'editing'
+
+hover --[click]--> selecting --[dblclick]--> editing
+^ |
+|----[blur/ESC/click outside]
+
+````
+
+**构建产物**: 107.33KB → 116.3KB (+8.97KB)
+
+---
+
+#### Phase 2.10: Apply 失败自动回滚 ✅ 完成
+
+**文件改动**:
+- `core/editor.ts`: 新增 ApplySnapshot 类型、checkApplyingTxStatus()、attemptRollbackOnFailure() 函数
+
+**核心功能**:
+- **同步失败检测**: 捕获 `sendTransactionToAgent()` 抛错或返回 `success: false`
+- **自动回滚**: 失败时自动调用 `TransactionManager.undo()` 撤销 DOM 变更
+- **并发保护**: 使用 `applyingSnapshot` 防止重复 Apply
+- **新编辑检测**: 通过 txId + timestamp 双重校验，避免回滚用户的新编辑
+
+**回滚状态检测**:
+```typescript
+type ApplyTxStatus = 'ok' | 'no_snapshot' | 'tm_unavailable' | 'stack_empty' | 'tx_changed';
+````
+
+**错误消息映射**:
+
+- `no_snapshot` / `tm_unavailable` → `{原始错误} (unable to revert)`
+- `stack_empty` → `{原始错误} (already reverted)`
+- `tx_changed` → `{原始错误} (new edits detected, not reverted)`
+- `ok` + undo 成功 → `{原始错误} (changes reverted)`
+- `ok` + undo 失败 → `{原始错误} (revert failed)`
+
+**设计决策**:
+
+- 只处理同步失败（网络错误、Agent 返回失败），不处理异步执行失败（需要订阅 stream）
+- 回滚后事务进入 redoStack，用户可 Redo 重试
+- Apply 过程中用户做新编辑不会被回滚（保护用户操作）
+- 使用 timestamp 检测合并场景（同属性连续编辑会合并）
+
+**已知限制**:
+
+- 异步执行失败（Agent 完成后代码修改失败）需要订阅 stream 事件，不在本期范围
+- 用户手动 Undo 正在 Apply 的事务时，提示文案为 "new edits detected" 而非 "already reverted"（边界情况）
+
+**构建产物**: 116.3KB → ~117KB (+约0.7KB)
+
+---
+
+#### Phase 2.4-2.6: 拖拽重排功能 ✅ 完成
+
+**文件改动**:
+
+- `constants.ts`: 新增拖拽相关常量 (DRAG_THRESHOLD_PX, DRAG_HYSTERESIS_PX, DRAG_MAX_HIT_ELEMENTS, INSERTION_LINE_WIDTH)
+- `common/web-editor-types.ts`: 新增 MoveTransactionData 类型
+- `overlay/canvas-overlay.ts`: 新增 `setDragGhostRect()` 和 `setInsertionLine()` 方法
+- `core/transaction-manager.ts`: 新增 `beginMove()` 方法和 move 事务支持
+- `core/event-controller.ts`: 新增 `dragging` 模式和拖拽相关回调
+- `drag/drag-reorder-controller.ts` (新增): 核心拖拽逻辑
+- `core/editor.ts`: 集成 DragReorderController
+
+**核心功能**:
+
+- **拖拽手势检测**: pointerdown → 移动超过阈值(5px) → 进入 dragging 模式
+- **视觉反馈**:
+  - Ghost 矩形 (半透明蓝色，跟随指针)
+  - Insertion Line (橙色横线，指示插入位置)
+  - 60FPS rAF 合帧渲染
+- **命中测试**: 使用 elementsFromPoint 找到有效 drop 目标
+- **边界约束**:
+  - 禁止拖动 HTML/BODY/HEAD
+  - 禁止移入自身子树
+  - 禁止跨 ShadowRoot 移动
+  - Phase 1 仅支持 block/flex-column 布局
+- **事务集成**: 单一 move 事务，支持 Undo/Redo
+
+**审查修复** (基于 Codex 代码审查):
+
+1. **Shadow DOM 命中测试修复**:
+   - 将 `getHitElements()` 改为 `getHitElementsFromRoot(root, x, y)`
+   - 使用 `draggedElement.getRootNode()` 获取正确的 Document/ShadowRoot
+   - 确保在 Shadow DOM 内拖拽时能正确命中元素
+
+2. **Pointer/Mouse 事件冲突修复**:
+   - 新增 `isPointerEventOrigin` 字段追踪 dragCandidate 来源类型
+   - 新增 `draggingIsPointerOrigin` 追踪活动拖拽的来源
+   - 只允许同类型事件操作拖拽状态，防止 PointerEvent/MouseEvent 串扰
+
+3. **模式切换状态清理一致性**:
+   - 重构 `setMode()` 函数，明确状态清理不变量
+   - 离开 `selecting` 时清理 dragCandidate
+   - 离开 `dragging` 时清理所有拖拽状态
+   - 进入 `hover` 时额外调用 `clearDragState()` 确保干净
+
+4. **窗口失焦拖拽取消**:
+   - 新增 `handleWindowBlur()` 处理窗口失焦
+   - 新增 `handleVisibilityChange()` 处理页面可见性变化
+   - 扩展 `DragCancelReason` 类型添加 `blur` 和 `visibilitychange`
+   - 防止 UI 状态卡在 pointer-events: none
+
+**Undo/Redo 设计**:
+
+- `beginMove()` 捕获初始位置 (parentLocator + index + sibling anchor)
+- `commit()` 记录目标位置，生成单一 move 事务
+- Apply 使用 anchor 优先 + index 兜底的定位策略
+- 对跨 root / 插入自身子树的操作做 apply 层校验
+
+**已知限制**:
+
+- Phase 1 不支持 grid 布局和 flex-row 布局
+- 不支持 "insert as child" (只支持 sibling 插入)
+- Locator 漂移可能导致 Undo/Redo 失败 (会触发 onApplyError 并回滚栈)
+
+**构建产物**: ~117KB → 145.16KB (+28KB，含拖拽功能)
+
+---
+
+### Phase 3: 属性面板 ✅ 完成
+
+#### Phase 3.1: 面板容器与 Tab 切换 ✅ 完成
+
+**文件改动**:
+
+- `ui/property-panel/types.ts` (新增): 类型定义 (PropertyPanel, DesignControl 等)
+- `ui/property-panel/property-panel.ts` (新增): 面板主组件
+- `ui/property-panel/index.ts` (新增): 模块导出
+- `ui/shadow-host.ts`: 新增 ~300 行 CSS 样式
+- `core/editor.ts`: 集成 PropertyPanel
+
+**核心功能**:
+
+- **Tab 切换**: Design / DOM 两个标签页 (DOM 为占位)
+- **可折叠控件组**: 6 个组 (Position/Layout/Size/Spacing/Typography/Appearance)
+- **空状态**: 未选中元素时显示提示
+- **与 selection 联动**: `setTarget()` 同步选中元素
+- **Undo/Redo 刷新**: `handleTransactionChange` 触发 `propertyPanel.refresh()`
+
+---
+
+#### Phase 3.3-3.8: Design 控件 ✅ 完成
+
+**文件结构**:
+
+```
+ui/property-panel/controls/
+├── index.ts              # 统一导出
+├── size-control.ts       # Width/Height
+├── spacing-control.ts    # Margin/Padding (盒模型可视化)
+├── position-control.ts   # position/top/right/bottom/left/z-index
+├── layout-control.ts     # display/flex-direction/justify/align/gap
+├── typography-control.ts # font-size/weight/line-height/text-align/color
+└── appearance-control.ts # opacity/border-radius/border-width/color/bg-color
+```
+
+**共同模式 (DesignControl)**:
+
+- `setTarget(element: Element | null)`: 更新目标元素
+- `refresh()`: 刷新控件值 (Undo/Redo 后调用)
+- `dispose()`: 清理资源
+
+**交互设计**:
+
+- **Inline style 优先**: 输入框显示 inline style 值，placeholder 显示 computed 值
+- **实时预览**: 输入时使用 `beginStyle().set()` 即时应用
+- **提交语义**: Blur 提交、Enter 提交并失焦、ESC 回滚
+- **单位处理**: 纯数字默认加 px (line-height 除外，保持 unitless)
+- **空值清除**: 输入空值清除 inline style
+
+**事务集成**:
+
+- 每个属性独立事务，支持连续编辑合并 (800ms 窗口)
+- 切换选中元素时自动 commit 当前编辑
+- Select 元素与 Input 采用相同的 begin/commit/rollback 模式
+
+**Shadow DOM 兼容**:
+
+- 使用 `getRootNode().activeElement` 判断焦点状态
+- 避免 `document.activeElement` 在 Shadow DOM 中返回 host 的问题
+
+---
+
+#### Phase 3.9: 事务集成 ✅ 完成
+
+- `TransactionManager.beginStyle()` / `applyStyle()` 完整集成
+- Undo/Redo 后自动调用 `propertyPanel.refresh()`
+- 选择新元素时自动 commit 当前控件的活动事务
+
+---
+
+---
+
+#### Phase 3.2: Components 树 (DOM 层级) ✅ 完成
+
+**文件改动**:
+
+- `ui/property-panel/components-tree.ts` (新增)
+- `ui/property-panel/property-panel.ts` (集成)
+- `ui/shadow-host.ts` (CSS 扩展)
+
+**实现特性**:
+
+- 显示选中元素的祖先路径 (从 body 到选中元素)
+- 显示选中元素的直接子元素
+- 高亮当前选中元素
+- 点击任意节点可切换选中
+- Hover 时显示元素预览
+- 最大深度/子元素限制避免性能问题
+
+---
+
+#### Phase 3.6: Spacing scrub (拖拽调数值) ✅ 完成
+
+**文件改动**:
+
+- `ui/property-panel/controls/spacing-control.ts` (添加 pointer events)
+- `ui/shadow-host.ts` (CSS cursor 样式)
+
+**实现特性**:
+
+- 输入框未聚焦时显示 ew-resize cursor
+- 按住输入框并水平拖拽可调整数值
+- 阈值检测 (3px) 防止误触发
+- 灵敏度: 每 2px 移动 = 1px 数值变化
+- 拖拽中使用 setPointerCapture 保证追踪
+- 拖拽完成后自动 commit 事务
+- 点击不拖拽则聚焦输入框进入编辑模式
+
+---
+
+#### Phase 3.10: 执行结果反馈 UI ✅ 完成
+
+**文件改动**:
+
+- `core/execution-tracker.ts` (新增)
+- `core/editor.ts` (集成 tracker)
+- `ui/toolbar.ts` (扩展 status 类型)
+- `ui/shadow-host.ts` (CSS pulse 动画)
+- `background/web-editor/index.ts` (SSE 订阅 + 状态缓存)
+- `common/message-types.ts` (新增 WEB_EDITOR_STATUS_QUERY)
+
+**实现特性**:
+
+- Apply 成功后自动建立 SSE 连接订阅 Agent 状态
+- 状态阶段: pending → starting → running → locating → applying → completed/failed
+- Toolbar 实时显示执行状态和消息
+- Progress 状态带呼吸动画
+- 2分钟超时保护
+- Background 缓存状态供 content script 查询
+
+---
+
+#### Phase 3.11: Agent Prompt 优化 ✅ 完成
+
+**文件改动**:
+
+- `background/web-editor/index.ts` (重写 buildAgentPrompt)
+
+**优化内容**:
+
+- 扩展 WebEditorApplyPayload 支持 V2 字段 (selectorCandidates, debugSource, operation)
+- 新增归一化函数处理 V2 字段
+- 生成结构化 Markdown prompt:
+  - Source Location (高置信度 debugSource)
+  - Element Fingerprint
+  - CSS Selectors (候选列表)
+  - Requested Change (before/after diff)
+  - How to Apply (分步指引)
+  - Constraints (框架特定建议)
+- 利用 debugSource 提供精确文件:行号定位
+
+---
+
+**已知限制 (后续迭代)**:
+
+- Select 的"清空 inline"需要添加 Unset 选项
+- 控件间大量重复代码 (normalizeLength/isFieldFocused 等)，可抽公共 utils
+- 未支持 !important 优先级
+
+**构建产物**: 145KB → 228KB (+83KB，含 Components 树 + Scrub + 执行反馈)
+
+---
+
+### Phase 4: 高级功能 (进行中)
+
+#### Phase 4 准备工作 ✅ 完成
+
+##### Task 0: 禁用 Apply on move 事务
+
+**文件改动**:
+
+- `ui/toolbar.ts`: 新增 `getApplyBlockReason` 选项
+- `core/editor.ts`: 提供 `getApplyBlockReason` 实现
+
+**实现特性**:
+
+- Apply 按钮在最新事务为 move 类型时自动禁用
+- 禁用时显示 tooltip 说明原因
+- 在 renderButtons() 中检查，每次状态变化时更新
+
+---
+
+##### Task 1: 扩展 TransactionManager 支持 multi-style
+
+**文件改动**:
+
+- `core/transaction-manager.ts`:
+  - 新增 `MultiStyleTransactionHandle` 接口
+  - 新增 `createStyleTransactionFromStyles()` 通用工厂函数
+  - 新增 `beginMultiStyle()` 方法
+
+**实现特性**:
+
+- 支持一次性修改多个 CSS 属性（为 4.9 位置/尺寸手柄做准备）
+- 只记录实际变化的属性（避免噪音）
+- 默认 merge=false 保证拖拽手势的撤销粒度
+- 复用现有的 pushTransaction/applyStylesSnapshot 逻辑
+
+---
+
+#### Phase 4.9: 位置/尺寸手柄 ✅ 完成
+
+**文件改动**:
+
+- `overlay/handles-controller.ts` (新增): 完整的 resize handles 实现
+- `ui/shadow-host.ts`: 添加 handles 相关 CSS 样式，给 overlayRoot 添加事件隔离
+- `core/editor.ts`: 集成 HandlesController
+
+**实现特性**:
+
+- 8 方向 resize handles (nw, n, ne, e, se, s, sw, w)
+- DOM 手柄 + pointer capture 实现可靠的拖拽追踪
+- rAF 节流更新，60FPS 流畅体验
+- `beginMultiStyle()` 事务集成，单次拖拽 = 单条 undo 步骤
+- 拖拽阈值 (3px)，避免点击产生事务
+- position mode 处理 (fixed/absolute/relative/static)
+- box-sizing 处理 (border-box/content-box)
+- absolute/fixed 定位考虑 margin
+- static 模式下 margin: auto 检测，防止破坏居中布局
+- ESC 取消 / blur 取消 / visibilitychange 取消
+- transform 元素检测并禁用（矩阵计算待后续实现）
+- Size HUD 显示 W × H
+
+**CSS 样式**:
+
+- `.we-handles-layer`: 手柄层容器
+- `.we-selection-frame`: 选中框定位
+- `.we-resize-handle`: 8px 圆角手柄，hover 高亮 + 缩放动画
+- `.we-size-hud`: 玻璃拟态尺寸标签
+
+**已知限制**:
+
+- 不支持 transform 元素（需要矩阵逆变换）
+- 不支持 inline `inset` shorthand（会被 left/top 覆盖）
+- Move grip（移动手柄）未实现，当前只支持 resize
+
+---
+
+#### Phase 4 剩余任务
+
+| 序号 | 任务                             | 状态   | 备注                          |
+| ---- | -------------------------------- | ------ | ----------------------------- |
+| 4.2  | 智能对齐线与吸附                 | ✅完成 | resize handles 集成完成       |
+| 4.3  | 测距标注                         | ✅完成 | resize handles 集成完成       |
+| 4.4  | 组件实例识别 (结构指纹 + Worker) | ⏭跳过 | 与 Phase 7 重合，改用框架 API |
+| 4.6  | CSS 面板 - 样式来源追踪          | ✅完成 | CSSOM 收集+级联计算+继承追踪  |
+| 4.7  | CSS 面板 - class 编辑            | ✅完成 | Chips UI + 事务系统集成       |
+| 4.8  | HMR 一致性校验                   | ✅完成 | 状态机+静默窗口+4层fallback   |
+| 4.9  | 位置/尺寸手柄                    | ✅完成 |                               |
+| 4.10 | 按需渲染 (静止停止 tick)         | ✅完成 | 现有 rAF 实现已满足           |
+
+---
+
+#### Phase 4.2: 智能对齐线与吸附 ✅ 完成
+
+**文件改动**:
+
+- `core/snap-engine.ts` (新增): 纯函数模块，负责锚点采集和吸附计算
+- `overlay/canvas-overlay.ts`: 新增 `setGuideLines()` 方法和 `drawGuideLines()` 渲染函数
+- `overlay/handles-controller.ts`: 集成 snap-engine，在 resize 过程中应用吸附
+- `constants.ts`: 新增吸附相关常量
+- `core/editor.ts`: 传递 canvasOverlay 给 HandlesController
+
+**核心功能**:
+
+- **锚点采集**：
+  - 同父容器 siblings（双向窗口扫描，最多 300 个元素，保留最近 30 个）
+  - Viewport 边界（left/center/right × top/middle/bottom）
+  - 采集仅在手势阈值通过后执行一次，避免 layout thrash
+- **吸附计算**：
+  - 纯函数设计（`computeResizeSnap`），无 DOM 访问，可测试
+  - 支持 X/Y 轴独立吸附
+  - Hysteresis 机制防止阈值边界抖动（threshold 6px + hysteresis 2px）
+  - 最小尺寸约束检查
+- **Guide Lines 渲染**：
+  - Pink 颜色 (#ec4899)，1px 线宽
+  - Sibling 锚点：线段从源元素到目标元素边缘
+  - Viewport 锚点：全屏横线或竖线
+  - 仅在状态变化时更新（性能优化）
+
+**架构设计**:
+
+```
+ResizeSession
+  ├─ anchors: SnapAnchors | null    # 阈值后采集一次
+  ├─ lockX: SnapLockX | null        # X轴锁定（hysteresis）
+  ├─ lockY: SnapLockY | null        # Y轴锁定（hysteresis）
+  └─ hadGuidesLastFrame: boolean    # 渲染变化检测
+
+每帧流程:
+  proposedRect → computeResizeSnap() → snappedRect
+                                     → guideLines
+                                     → 更新 lockX/lockY
+```
+
+**常量配置** (`constants.ts`):
+
+- `WEB_EDITOR_V2_SNAP_THRESHOLD_PX = 6`: 吸附激活阈值
+- `WEB_EDITOR_V2_SNAP_HYSTERESIS_PX = 2`: 稳定锁定的额外距离
+- `WEB_EDITOR_V2_SNAP_MAX_ANCHOR_ELEMENTS = 30`: 参与吸附的最大兄弟元素数
+- `WEB_EDITOR_V2_SNAP_MAX_SIBLINGS_SCAN = 300`: 扫描的最大兄弟元素数
+- `WEB_EDITOR_V2_GUIDE_LINE_WIDTH = 1`: 对齐线宽度
+- `WEB_EDITOR_V2_COLORS.guideLine = '#ec4899'`: 对齐线颜色
+
+**已知限制**:
+
+- 仅支持 resize handles，拖拽移动待 move grip 实现后集成
+- 锚点在手势开始时快照，resize 导致的 reflow 不会更新锚点
+- 不跨 Shadow DOM 边界对齐
+
+**构建产物**: 270KB → 271.56KB (+1.56KB)
+
+---
+
+#### Phase 4.3: 测距标注 ✅ 完成
+
+**文件改动**:
+
+- `core/snap-engine.ts`: 新增 `ComputeDistanceLabelsParams` 接口和 `computeDistanceLabels()` 纯函数
+- `overlay/canvas-overlay.ts`: 新增 `DistanceLabel` 类型、`setDistanceLabels()` 方法和 `drawDistanceLabels()` 渲染函数
+- `overlay/handles-controller.ts`: 集成 distance labels，在 resize 过程中显示间距标注
+- `constants.ts`: 新增 distance label 相关常量和颜色
+
+**核心功能**:
+
+- **间距计算**（`computeDistanceLabels`）：
+  - **Sibling gaps**: lockX（垂直对齐线）显示 Y 方向间距，lockY（水平对齐线）显示 X 方向间距
+  - **Viewport margins**: 显示元素到视口边缘的距离（根据对齐类型自动选择）
+  - 纯函数设计，无 DOM 访问，可测试
+  - 间距 ≤ 0 时自动隐藏（重叠/接触状态）
+- **测距线渲染**（`drawDistanceLabels`）：
+  - 测量线：Pink 颜色 (#ec4899)，1px 线宽
+  - 端点 tick：垂直于测量方向，4px 长度
+  - 文字 pill：深色半透明背景 + 白色文字，圆角矩形
+  - 位置智能调整：优先线上方/右侧，越界自动翻转
+  - 视口边界 clamp（处理超小视口边界情况）
+
+**架构设计**:
+
+```
+DistanceLabel {
+  kind: 'sibling' | 'viewport'   # 间距来源
+  axis: 'x' | 'y'                # 测量方向
+  value: number                  # 间距值 (px)
+  text: string                   # 显示文本 (e.g. "12px")
+  line: ViewportLine             # 测量线段坐标
+}
+
+每帧流程:
+  snappedRect + lockX/lockY → computeDistanceLabels() → DistanceLabel[]
+                                                       → canvas 渲染
+```
+
+**常量配置** (`constants.ts`):
+
+- `WEB_EDITOR_V2_DISTANCE_LABEL_MIN_PX = 1`: 最小显示间距
+- `WEB_EDITOR_V2_DISTANCE_LINE_WIDTH = 1`: 测量线宽度
+- `WEB_EDITOR_V2_DISTANCE_TICK_SIZE = 4`: 端点 tick 大小
+- `WEB_EDITOR_V2_DISTANCE_LABEL_FONT`: 系统字体，600 粗细，11px
+- `WEB_EDITOR_V2_DISTANCE_LABEL_PADDING_X/Y`: Pill 内边距
+- `WEB_EDITOR_V2_DISTANCE_LABEL_RADIUS = 4`: Pill 圆角
+- `WEB_EDITOR_V2_COLORS.distanceLabelBg`: 深色半透明背景
+- `WEB_EDITOR_V2_COLORS.distanceLabelText`: 白色文字
+
+**代码审查修复**（Codex 发现的问题）:
+
+- **参数名不匹配 bug**: 修复 `computeDistanceLabels` 调用参数（`snappedRect` → `rect`, `minDisplayPx` → `minGapPx`）
+- **gap > 0 规则一致性**: `shouldShowGap()` 函数增加 `gap > 0` 条件，确保 0px 间距不显示
+- **viewport NaN 兜底**: 对 `viewport.width/height` 增加 `isFiniteNumber` 检查
+- **pill clamp 边界修复**: 处理 `pillWidth > viewportWidth` 导致 `max < min` 的边界情况
+
+**构建产物**: 271.56KB → 281.84KB (+10.28KB)
+
+---
+
+#### Phase 4.8: HMR 一致性校验 ✅ 完成
+
+**文件改动**:
+
+- `core/css-compare.ts` (新增): CSS 值比较工具模块
+- `core/hmr-consistency.ts` (新增): HMR 一致性校验器状态机
+- `ui/toolbar.ts`: 扩展 ToolbarStatus 类型
+- `core/editor.ts`: 集成 HMR 验证器
+
+**核心功能**:
+
+- **问题解决**: Apply 后 HMR 触发，验证编辑是否真正持久化到代码
+- **静默窗口策略**: 等待 DOM 变更稳定后再校验（默认 300ms quiet window）
+- **校验结果**: `verified | mismatch | lost | uncertain | skipped`
+
+**状态机设计**:
+
+```
+idle → executing → settling → verifying → final
+           ↓              ↓              ↓
+       (skipped)      (skipped)     (verified/mismatch/lost/uncertain)
+```
+
+**元素重定位策略**（4 层 fallback）:
+
+1. **current**: 使用 Apply 时的 DOM 引用（如果仍 connected）
+2. **strict**: 使用 locator 精确匹配（唯一 selector + fingerprint）
+3. **relaxed**: 放宽唯一性约束，使用评分算法
+4. **geometric**: 几何位置 fallback（低置信度，只产出 uncertain）
+
+**CSS 值比较**:
+
+- 比较 computed style（避免 "1rem" vs "16px" 假 mismatch）
+- px 值数值容差: 0.5px
+- matrix/matrix3d 数值容差: 1e-3
+- 结构相同检测（避免 "10px solid" vs "10px" 误匹配）
+
+**DOM 观察**:
+
+- 监听 `<head>` 的 style/link 变更
+- 监听目标元素所在 root 的结构/属性/文本变更
+- characterData 支持（text 事务校验）
+- 祖先节点移除检测
+
+**Codex 代码审查修复**:
+
+- **buildResult 参数丢失 bug**: 修复 active=null 后构建结果时丢失 session 数据
+- **Toolbar 状态覆盖**: 只在 verifier 曾接管时才重置 idle
+- **characterData 支持**: DOM observer 增加 characterData 监听
+- **祖先节点移除**: isDomMutationRelevant 增加 removedNode.contains(target) 检测
+- **低置信度降级**: geometric fallback 强制输出 uncertain
+- **deselection 处理**: 用户取消选中时正确取消校验
+
+**Toolbar 状态扩展**:
+
+- `verifying`: 正在等待 HMR 或校验中
+- `verified`: 校验通过（HMR 成功应用）
+- `mismatch`: 值不匹配
+- `lost`: 无法定位目标元素
+- `uncertain`: 无法确定（无 HMR 信号/低置信度/超时）
+
+**已知限制**:
+
+- relaxedLocate 不支持 Shadow DOM 内元素（需要下钻到正确 queryRoot）
+- 对 style/link 以外的 head 变更可能产生假阳性信号
+- 快速 HMR 场景可能在首次校验时就落到 uncertain
+
+**构建产物**: 281.84KB → 315.28KB (+33.44KB)
+
+---
+
+#### Phase 4.6: CSS 面板 - 样式来源追踪 ✅ 完成
+
+**文件改动**:
+
+- `core/cssom-styles-collector.ts` (新增): CSSOM 样式收集器，~1100 行
+- `ui/property-panel/css-panel.ts` (新增): CSS 面板 UI 组件
+- `ui/property-panel/types.ts`: 添加 'css' tab 类型
+- `ui/property-panel/property-panel.ts`: 集成 CSS tab
+- `ui/shadow-host.ts`: 添加 CSS 面板样式 (~190 行)
+
+**核心功能**:
+
+- **样式收集**: CSSOM 遍历 + element.matches() 匹配
+- **特异性计算**: Selectors Level 4 规范（支持 :where/:is/:not/:has）
+- **级联决策**: !important > specificity > source order
+- **继承追踪**: 沿祖先链最多 10 层，只收集可继承属性
+- **Shorthand 展开**: margin/padding/border/font 等常用 shorthand → longhands
+
+**CSS 面板 UI**:
+
+- **Tab 切换**: Design | CSS | DOM 三个 tab
+- **Inline styles**: element.style 区块，黄色高亮
+- **Matched rules**: 按特异性 + 源顺序排序
+- **Inherited sections**: "Inherited from div.foo" 折叠区块
+- **Overridden 划线**: 被覆盖的声明显示删除线 + 灰色
+
+**特异性算法**:
+
+- (inline, id, class, type) 四元组
+- :where(...) 零特异性
+- :is/:not/:has 取参数 max
+- :nth-child(... of selector) 正确处理
+- Legacy pseudo-elements (:before/:after) 计入 type
+
+**性能优化**:
+
+- **延迟加载**: 只在 CSS tab 可见时才收集数据
+- **Per-root 缓存**: 同一 root 的规则索引复用
+- **@import 正确遍历**: 避免循环依赖，跨域 stylesheet 跳过
+
+**Codex 代码审查修复**:
+
+- **WeakMap 不可迭代 bug**: 改用 indexList 数组收集 stats
+- **@import 栈逻辑错误**: 先检测循环再 push，内联展开逻辑
+- **延迟加载**: setVisible(visible) 控制 CSS 收集时机
+
+**已知限制**:
+
+- CSSOM 无法获取精确文件行号（只有 href/label）
+- @container/@scope 规则暂不支持（输出 warning）
+- @layer 顺序近似处理（按源顺序）
+- :host/:host-context 特异性为近似值
+- logical shorthands (margin-inline 等) 未展开
+
+**构建产物**: 315.28KB → 363.43KB (+48.15KB)
+
+---
+
+#### Phase 4.7: CSS 面板 - class 编辑 ✅ 完成
+
+**文件改动**:
+
+- `common/web-editor-types.ts`: 添加 'class' 到 TransactionType，添加 classes 字段
+- `core/transaction-manager.ts`: 新增 recordClass() 方法和 class 事务支持
+- `ui/property-panel/class-editor.ts` (新增): ClassEditor UI 组件
+- `ui/property-panel/css-panel.ts`: 集成 ClassEditor，添加 class 建议提取
+- `ui/property-panel/property-panel.ts`: 传递 TransactionManager 给 CSS 面板
+- `ui/shadow-host.ts`: 新增 ~130 行 class editor CSS 样式
+
+**核心功能**:
+
+- **Chips UI**: 每个 class 显示为可删除的 chip
+- **输入框**: Enter/Space 提交，Backspace 删除最后一个
+- **建议列表**: 从当前 CSS 规则提取 class 名，按前缀过滤
+- **事务系统**: class 编辑支持 Undo/Redo
+- **SVG 兼容**: 使用 setAttribute/removeAttribute
+
+**CSS selector 解析**:
+
+- 支持简单转义（`\:`, `\/`, `\.` 等）
+- 支持 hex 转义（`\31 23` 等）
+- 正确提取 Tailwind 类名（`sm:bg-red-500`）
+- Unicode 范围防护（避免 RangeError）
+
+**Undo/Redo 定位策略**:
+
+- 使用方向性 locator（before/after）
+- 与 move 事务一致的 fallback 策略
+- class 变更后重新采集 locator
+
+**已知限制**:
+
+- Apply to Code 暂不支持 class 事务（与 move 事务类似）
+- 粘贴多个 class 合并为单次事务（可接受的 UX）
+- 建议仅从当前匹配规则提取，不扫描全量 stylesheet
+
+---
+
+### Phase 5: 工程化与增强 (进行中)
+
+#### Phase 5.2: 核心逻辑单元测试 ✅ 完成
+
+**文件改动**:
+
+- `app/chrome-extension/vitest.config.ts` (新增): Vitest 测试配置
+- `app/chrome-extension/tests/web-editor-v2/test-utils/dom.ts` (新增): DOM mock 工具库
+- `app/chrome-extension/tests/web-editor-v2/snap-engine.test.ts` (新增): 吸附引擎测试
+- `app/chrome-extension/tests/web-editor-v2/locator.test.ts` (新增): 定位器测试
+- `app/chrome-extension/tests/web-editor-v2/selection-engine.test.ts` (新增): 选择引擎测试
+
+**测试统计**:
+
+- snap-engine.test.ts: 39 tests (纯函数测试，无需 DOM mock)
+- locator.test.ts: 34 tests (jsdom 环境，含 Shadow DOM 条件测试)
+- selection-engine.test.ts: 15 tests (完整 DOM mock)
+- **总计**: 88 tests 全部通过
+
+**DOM Mock 工具** (`test-utils/dom.ts`):
+
+- `mockBoundingClientRect()`: 固定元素尺寸
+- `mockElementsFromPoint()`: mock 命中测试
+- `mockGetComputedStyle()`: mock 样式查询
+- `mockViewport()`: mock 视口尺寸
+- `createMockEvent()`: 创建带 composedPath 的事件
+- `installDomMocks()`: 批量安装 + restore
+
+**测试覆盖重点**:
+
+- snap-engine: threshold/hysteresis/minSize/center-middle锚点/lock失效/sibling guide/viewport labels
+- locator: fingerprint/DOM path/selector candidates/locator create+locate/shadowHostChain
+- selection-engine: 候选收集/overlay过滤/interactive评分/visual boundary/size惩罚/modifiers处理
+
+---
+
+#### Phase 5.3: 性能监控集成 ✅ 完成
+
+**文件改动**:
+
+- `app/chrome-extension/entrypoints/web-editor-v2/core/perf-monitor.ts` (新增): FPS/内存监控 HUD
+- `app/chrome-extension/entrypoints/web-editor-v2/ui/shadow-host.ts` (修改): 添加 `.we-perf-hud` CSS 样式
+- `app/chrome-extension/entrypoints/web-editor-v2/core/editor.ts` (修改): 集成 perf monitor + 热键
+
+**功能特性**:
+
+- FPS 监控：rAF 驱动，500ms 更新频率
+- 内存监控：Chrome `performance.memory` API，1s 采样频率
+- 热键：Ctrl/Cmd+Shift+P 切换显示
+- 自动暂停：页面隐藏时停止 rAF 循环
+
+---
+
+#### Phase 5.4: Design System Tokens 集成 ✅ 核心完成
+
+**文件改动**:
+
+- `app/chrome-extension/entrypoints/web-editor-v2/core/design-tokens/types.ts` (新增): 类型定义
+- `app/chrome-extension/entrypoints/web-editor-v2/core/design-tokens/token-detector.ts` (新增): CSSOM 扫描
+- `app/chrome-extension/entrypoints/web-editor-v2/core/design-tokens/token-resolver.ts` (新增): 值解析
+- `app/chrome-extension/entrypoints/web-editor-v2/core/design-tokens/design-tokens-service.ts` (新增): 统一服务
+- `app/chrome-extension/entrypoints/web-editor-v2/core/design-tokens/index.ts` (新增): 模块导出
+- `app/chrome-extension/tests/web-editor-v2/design-tokens.test.ts` (新增): 39 tests
+
+**核心功能**:
+
+- TokenDetector: CSSOM 扫描收集 CSS 变量声明，支持 @import/@media/@supports
+- TokenResolver: var() 解析/格式化，computed value 读取
+- DesignTokensService: 缓存管理、失效事件、TransactionManager 集成
+
+**性能优化**:
+
+- 按需扫描：仅在 token picker 打开时触发 CSSOM 扫描
+- 单次 getComputedStyle：getContextTokens() 优化为单次调用
+- WeakMap 缓存：根据 Document/ShadowRoot 缓存索引
+
+**测试覆盖**:
+
+- token-resolver: var() 解析/格式化 (18 tests)
+- token-detector: inline token 收集 (8 tests)
+- design-tokens-service: 缓存/失效/查询 (13 tests)
+- **总计**: 127 tests (含原有 88 tests)
+
+**UI 组件** (已完成):
+
+- `app/chrome-extension/entrypoints/web-editor-v2/ui/property-panel/controls/token-picker.ts` (新增)
+- `app/chrome-extension/entrypoints/web-editor-v2/ui/shadow-host.ts` (添加 token-picker CSS)
+- `app/chrome-extension/entrypoints/web-editor-v2/ui/property-panel/controls/typography-control.ts` (集成 token picker 到 color 字段)
+
+**Token Picker 功能**:
+
+- 下拉显示可用 tokens
+- 支持过滤搜索
+- 显示 token 名称和计算值
+- 颜色类 token 显示色块预览
+- 键盘导航 (↑↓ Enter Escape)
+- "Show all root tokens" 切换选项
+
+---
+
+## Phase 7: React/Vue Props 实时编辑（规划中）
+
+### 7.0 功能概述与可行性分析
+
+#### 需求背景
+
+实现类似 Cursor Visual Editor 的 React/Vue 组件 Props 实时编辑功能：
+
+- 选中一个组件后，在侧边栏显示其 Props
+- 用户可以直接修改 Props 并实时预览效果
+- **纯 Runtime Hacking**，不涉及源码修改，主要用于开发调试
+- **仅支持 Dev 构建**，生产构建不在支持范围内
+
+#### 关键设计决策
+
+| 决策           | 结论              | 理由                                                    |
+| -------------- | ----------------- | ------------------------------------------------------- |
+| Undo/Redo      | ❌ 不需要         | Props 编辑是调试功能，不影响源码，提供 "Reset" 按钮即可 |
+| 生产构建支持   | ❌ 不需要         | 功能定位是开发调试，生产构建检测到后直接提示不支持      |
+| React 更新机制 | 复用 DevTools API | 使用 `renderer.overrideProps()` 官方 API，而非手动 hack |
+
+#### 技术方案：复用 React DevTools API
+
+**关键发现**：React 从 16.7+ 开始通过 `__REACT_DEVTOOLS_GLOBAL_HOOK__` 暴露了官方 Props 编辑 API：
+
+```javascript
+// React renderer 暴露的能力 (来自 react-devtools-shared/src/backend/types.js)
+renderer.overrideProps(fiber, path, value); // 16.7+，修改 Props 并触发更新
+renderer.overrideHookState(fiber, id, path, value); // 修改 Hook state
+renderer.scheduleUpdate(fiber); // 16.9+，调度更新
+renderer.findFiberByHostInstance(dom); // 通过 DOM 找 fiber
+```
+
+**React DevTools 的 Props 编辑实现**（`fiber/renderer.js:7918-7929`）：
+
+```javascript
+case 'props':
+  switch (fiber.tag) {
+    case ClassComponent:
+      // Class Component: 修改 pendingProps + forceUpdate
+      fiber.pendingProps = copyWithSet(instance.props, path, value);
+      instance.forceUpdate();
+      break;
+    default:
+      // Function Component: 使用 renderer 提供的 overrideProps
+      if (typeof overrideProps === 'function') {
+        overrideProps(fiber, path, value);  // ← 官方 API，内部处理更新
+      }
+      break;
+  }
+```
+
+#### Hook 可用性策略
+
+**策略：检测 DevTools Hook，没有则自己注入**
+
+```
+用户点击启用 Web Editor
+  ↓
+检测 __REACT_DEVTOOLS_GLOBAL_HOOK__
+  ↓
+├─ READY: hook 存在 + renderer 有 overrideProps → 直接使用
+│
+├─ HOOK_PRESENT_NO_RENDERERS: hook 存在但无 renderer
+│    → 监听 hook.on('renderer', ...) 或轮询（短超时）
+│    → 超时后若页面有 React fiber → 提示"需要刷新页面"
+│
+├─ RENDERERS_NO_EDITING: 有 renderer 但无 overrideProps
+│    → 可能是生产构建，提示"需要 Development 构建"
+│
+└─ HOOK_MISSING: hook 不存在
+     → 注入我们的最小 hook
+     → 等待 renderer 注册（短超时）
+     → 无 renderer 且页面有 React → 提示"需要刷新页面"
+```
+
+**注入时机问题**：
+
+- React DevTools 在 `document_start` + MAIN world 注入 hook
+- 我们是"按需启用"，页面可能已加载完成
+- **解决方案**：首次发现需要刷新时，注册 `document_start` content script，后续导航自动生效
+
+#### 最小 Hook 实现
+
+参考 `react-devtools-shared/src/hook.js`，最小需要提供：
+
+```javascript
+// React 会调用的方法 (hook.js:655-662)
+window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+  renderers: new Map(),
+  inject(renderer) {
+    const id = this.renderers.size + 1;
+    this.renderers.set(id, renderer);
+    // 通知监听者
+    this.emit('renderer', { id, renderer });
+    return id;
+  },
+  // React 调用的生命周期方法（必须提供，可以是 no-op）
+  onCommitFiberRoot() {},
+  onCommitFiberUnmount() {},
+  onPostCommitFiberRoot() {}, // React 18+
+  setStrictMode() {},
+  checkDCE() {},
+  // 事件系统
+  _listeners: {},
+  on(event, fn) {
+    /* ... */
+  },
+  off(event, fn) {
+    /* ... */
+  },
+  emit(event, data) {
+    /* ... */
+  },
+};
+```
+
+#### 架构设计
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    ISOLATED World                            │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Shadow DOM (Property Panel)              │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │   │
+│  │  │ Design Tab  │  │  DOM Tab    │  │ Props Tab   │   │   │
+│  │  │  (现有)     │  │  (现有)     │  │  (新增)     │   │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘   │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                            ↕                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              Props Bridge (core/props-bridge.ts)      │   │
+│  │  - 发送请求：web-editor-props:request                 │   │
+│  │  - 接收响应：web-editor-props:response                │   │
+│  │  - ElementLocator 序列化/定位                         │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+                            ↕ CustomEvent
+┌─────────────────────────────────────────────────────────────┐
+│                     MAIN World                               │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │           Props Agent (inject-scripts/props-agent.js) │   │
+│  │  - 检测/注入 DevTools Hook                            │   │
+│  │  - React: renderer.overrideProps() (官方 API)         │   │
+│  │  - Vue: __vueParentComponent → $forceUpdate           │   │
+│  │  - 发送 web-editor-props:response                     │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                            ↕                                 │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              React/Vue Runtime (页面)                 │   │
+│  │  - __REACT_DEVTOOLS_GLOBAL_HOOK__.renderers           │   │
+│  │  - renderer.overrideProps / overrideHookState         │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 技术风险评估（更新版）
+
+| 风险                          | 影响 | 概率 | 缓解措施                                        |
+| ----------------------------- | ---- | ---- | ----------------------------------------------- |
+| Hook 注入太晚（页面已加载）   | 高   | 高   | 检测到需要时提示刷新 + 注册 early-injection     |
+| renderer.overrideProps 不存在 | 中   | 低   | 检测后提示"需要 Dev 构建"或 Class 组件 fallback |
+| Props 非可序列化              | 中   | 中   | 序列化时标记类型，只允许编辑原始值              |
+| Vue 无官方 DevTools API       | 中   | -    | 使用 `$forceUpdate()` best-effort 方案          |
+
+#### 与现有模块的集成点
+
+| 集成点                 | 文件位置                                      | 改动说明                                   |
+| ---------------------- | --------------------------------------------- | ------------------------------------------ |
+| PropertyPanel Tab 扩展 | `ui/property-panel/types.ts:15`               | 添加 `'props'` 到 `PropertyPanelTab` 类型  |
+| Tab UI 渲染            | `ui/property-panel/property-panel.ts:213-227` | 新增 Props Tab 按钮                        |
+| Tab 面板渲染           | `ui/property-panel/property-panel.ts:257-274` | 新增 propsPanel 容器                       |
+| renderTabs 逻辑        | `ui/property-panel/property-panel.ts:384-395` | 三态切换逻辑                               |
+| 选中联动               | `core/editor.ts:278`                          | `handleSelect → propsPanel.setTarget()`    |
+| ElementLocator 复用    | `core/locator.ts:642`                         | 跨 world 元素定位                          |
+| MAIN World 注入        | `background/web-editor/index.ts`              | 新增 props-agent.js 注入逻辑               |
+| Early injection 注册   | `background/index.ts`                         | 可选：注册 `document_start` content script |
+
+---
+
+### Phase 7.1: 基础设施与 Hook 管理 (P0)
+
+**目标**: 建立通信基础设施 + DevTools Hook 检测/注入机制
+
+| 序号  | 任务                     | 预估工作量 | 依赖  | 说明                                             |
+| ----- | ------------------------ | ---------- | ----- | ------------------------------------------------ |
+| 7.1.1 | 创建 Props Agent 骨架    | 2h         | -     | `inject-scripts/props-agent.js`，MAIN world 运行 |
+| 7.1.2 | 实现 Hook 检测逻辑       | 2h         | 7.1.1 | 4 种状态：READY/NO_RENDERERS/NO_EDITING/MISSING  |
+| 7.1.3 | 实现最小 Hook 注入       | 3h         | 7.1.2 | 参考 DevTools hook.js，提供 React 必需的方法     |
+| 7.1.4 | 创建 Props Bridge 通信层 | 3h         | 7.1.1 | `core/props-bridge.ts`，CustomEvent 请求/响应    |
+| 7.1.5 | Background 注入逻辑      | 2h         | 7.1.1 | Editor start 时注入，stop 时清理                 |
+| 7.1.6 | Early-injection 注册     | 2h         | 7.1.3 | 可选：注册 `document_start` content script       |
+
+**Hook 状态检测逻辑**:
+
+```javascript
+function detectHookStatus() {
+  const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+
+  // 1. Hook 不存在
+  if (!hook || typeof hook.inject !== 'function') {
+    return { status: 'HOOK_MISSING' };
+  }
+
+  // 2. Hook 存在但无 renderer
+  if (!hook.renderers || hook.renderers.size === 0) {
+    return { status: 'HOOK_PRESENT_NO_RENDERERS', hook };
+  }
+
+  // 3. 找一个有 overrideProps 的 renderer
+  for (const [id, renderer] of hook.renderers) {
+    if (typeof renderer.overrideProps === 'function') {
+      return {
+        status: 'READY',
+        hook,
+        renderer,
+        rendererId: id,
+        capabilities: {
+          overrideProps: true,
+          overrideHookState: typeof renderer.overrideHookState === 'function',
+          findFiberByHostInstance: typeof renderer.findFiberByHostInstance === 'function',
+          scheduleUpdate: typeof renderer.scheduleUpdate === 'function',
+        },
+      };
+    }
+  }
+
+  // 4. 有 renderer 但无编辑能力（可能是生产构建）
+  return { status: 'RENDERERS_NO_EDITING', hook };
+}
+```
+
+**通信协议设计**:
+
+```typescript
+// Request (ISOLATED → MAIN)
+interface PropsRequest {
+  v: 1; // 协议版本
+  requestId: string; // 唯一请求 ID
+  op: 'probe' | 'read' | 'write' | 'reset' | 'cleanup';
+  locator?: ElementLocator; // 目标元素定位
+  payload?: {
+    propPath?: (string | number)[]; // 属性路径，如 ['style', 'color']
+    propValue?: unknown;
+  };
+}
+
+// Response (MAIN → ISOLATED)
+interface PropsResponse {
+  v: 1;
+  requestId: string;
+  success: boolean;
+  data?: {
+    hookStatus?: 'READY' | 'HOOK_PRESENT_NO_RENDERERS' | 'RENDERERS_NO_EDITING' | 'HOOK_MISSING';
+    needsRefresh?: boolean; // 是否需要刷新页面
+    framework?: 'react' | 'vue' | 'unknown';
+    componentName?: string;
+    props?: SerializedProps;
+    capabilities?: {
+      canRead: boolean;
+      canWrite: boolean;
+      canWriteHooks: boolean;
+    };
+  };
+  error?: string;
+}
+```
+
+**注入时机**:
+
+- Editor `start()` 时，background 调用 `chrome.scripting.executeScript({ world: 'MAIN', files: ['inject-scripts/props-agent.js'] })`
+- 如果检测到 `HOOK_MISSING`：注入最小 hook + 提示需要刷新
+- 如果用户同意 early-injection：注册 `document_start` content script
+- Editor `stop()` 时，发送 `web-editor-props:cleanup` 事件
+
+---
+
+### Phase 7.2: Props 读取 (P0)
+
+**目标**: 实现 React/Vue Props 的可靠读取
+
+| 序号  | 任务                         | 预估工作量 | 依赖  | 说明                                          |
+| ----- | ---------------------------- | ---------- | ----- | --------------------------------------------- |
+| 7.2.1 | 框架检测（per-element）      | 1h         | 7.1   | 检测 `__reactFiber$` / `__vueParentComponent` |
+| 7.2.2 | React Fiber Props 提取       | 3h         | 7.2.1 | 从 fiber 读取 `memoizedProps`                 |
+| 7.2.3 | Vue Instance Props 提取      | 1h         | 7.2.1 | 从 instance 读取 `props`（比 React 简单）     |
+| 7.2.4 | Props 序列化器               | 3h         | -     | 处理函数、Symbol、循环引用、ReactElement      |
+| 7.2.5 | ElementLocator 跨 world 解析 | 2h         | 7.1.4 | 复用现有 `locateElement()` 逻辑               |
+
+**框架检测策略（per-element，支持混用）**:
+
+```javascript
+// 在 MAIN world 执行，针对选中元素检测
+function detectFramework(element, maxDepth = 15) {
+  let node = element;
+
+  for (let depth = 0; depth < maxDepth && node; depth++) {
+    // 1. 检测 React（优先，因为更常见）
+    const reactKey = Object.keys(node).find(
+      (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$'),
+    );
+    if (reactKey) {
+      return { framework: 'react', data: node[reactKey], node };
+    }
+
+    // 2. 检测 Vue 3
+    if (node.__vueParentComponent) {
+      return { framework: 'vue', data: node.__vueParentComponent, node };
+    }
+
+    node = node.parentElement;
+  }
+
+  return { framework: 'unknown', data: null, node: null };
+}
+```
+
+**为什么 per-element 检测**：
+
+- 同一页面可能混用 React + Vue（micro-frontend 场景）
+- 选中不同元素可能属于不同框架
+- 现有 `payload-builder.ts:323` 已采用此策略
+
+**React vs Vue 处理分流**:
+
+```
+detectFramework(element)
+  ↓
+├─ framework: 'react'
+│    → 检查 Hook 状态（READY/MISSING/...）
+│    → 使用 renderer.overrideProps() 或 fallback
+│
+├─ framework: 'vue'
+│    → 直接读写 instance.props（无需 Hook）
+│    → 调用 $forceUpdate()
+│
+└─ framework: 'unknown'
+     → 显示 "Not a React/Vue component"
+```
+
+**React Fiber 遍历策略**:
+
+```javascript
+function findReactComponent(fiber) {
+  // 向上找最近的 Function/Class Component
+  while (fiber) {
+    // tag: 0 = FunctionComponent, 1 = ClassComponent, 11 = ForwardRef
+    if (fiber.tag === 0 || fiber.tag === 1 || fiber.tag === 11) {
+      return {
+        fiber,
+        name: fiber.type?.displayName || fiber.type?.name || 'Anonymous',
+        props: fiber.memoizedProps,
+      };
+    }
+    fiber = fiber.return;
+  }
+  return null;
+}
+```
+
+**Vue 3 Instance 访问（比 React 简单）**:
+
+```javascript
+function findVueComponent(instance) {
+  // Vue 3 的 __vueParentComponent 直接就是组件实例
+  return {
+    instance,
+    name: instance.type?.name || instance.type?.__name || 'Anonymous',
+    props: instance.props, // 直接可读写
+  };
+}
+```
+
+**Props 序列化规则**:
+| 类型 | 序列化结果 | 可编辑 |
+|------|-----------|--------|
+| string | `{ type: 'string', value: 'xxx' }` | ✅ |
+| number | `{ type: 'number', value: 123 }` | ✅ |
+| boolean | `{ type: 'boolean', value: true }` | ✅ |
+| null/undefined | `{ type: 'null' }` | ✅ |
+| function | `{ type: 'function', name: 'onClick' }` | ❌ |
+| ReactElement | `{ type: 'element', name: 'Button' }` | ❌ |
+| Array | `{ type: 'array', length: 5 }` | ❌ (Phase 2) |
+| Object | `{ type: 'object', keys: [...] }` | ❌ (Phase 2) |
+
+---
+
+### Phase 7.3: Props Tab UI (P1)
+
+**目标**: 在 Property Panel 中添加 Props Tab
+
+| 序号  | 任务                       | 预估工作量 | 依赖  | 说明                               |
+| ----- | -------------------------- | ---------- | ----- | ---------------------------------- |
+| 7.3.1 | 扩展 PropertyPanelTab 类型 | 0.5h       | -     | 添加 `'props'` 到 union type       |
+| 7.3.2 | Tab 按钮与面板容器         | 1h         | 7.3.1 | 三态切换逻辑                       |
+| 7.3.3 | 创建 PropsPanel 组件       | 3h         | 7.2   | `ui/property-panel/props-panel.ts` |
+| 7.3.4 | 能力状态显示               | 1h         | 7.1.4 | 顶部显示 framework/capabilities    |
+| 7.3.5 | Props 列表渲染             | 3h         | 7.2.3 | 根据类型渲染不同控件               |
+| 7.3.6 | 编辑控件实现               | 4h         | 7.3.5 | Input/Toggle/Select 等             |
+| 7.3.7 | 与 selection 联动          | 1h         | 7.3.3 | `setTarget()` / `refresh()`        |
+
+**PropsPanel 接口设计**:
+
+```typescript
+interface PropsPanel {
+  setTarget(element: Element | null): void;
+  refresh(): void;
+  dispose(): void;
+}
+
+interface PropsPanelOptions {
+  container: HTMLElement;
+  propsBridge: PropsBridge;
+  onError?: (error: string) => void;
+}
+```
+
+**UI 布局**:
+
+```
+┌────────────────────────────────────────┐
+│ Props                          [Close] │
+│ ─────────────────────────────────────  │
+│ [Design] [DOM] [Props]                 │
+├────────────────────────────────────────┤
+│ ⚛️ React · ButtonComponent             │ ← 框架 + 组件名
+│ ─────────────────────────────────────  │
+│ ⚡ Can read | ⚡ Can write | ⚠️ Update  │ ← 能力状态
+├────────────────────────────────────────┤
+│ ▾ Props                                │
+│   variant    [primary    ▼]            │ ← enum → Select
+│   disabled   [  ] Toggle               │ ← boolean → Toggle
+│   size       [medium    ]              │ ← string → Input
+│   onClick    ƒ onClick()               │ ← function → 只读
+│   children   <Icon />                  │ ← element → 只读
+└────────────────────────────────────────┘
+```
+
+---
+
+### Phase 7.4: Props 写入与更新 (P1)
+
+**目标**: 实现 Props 修改并触发 React/Vue 重渲染
+
+| 序号  | 任务                             | 预估工作量 | 依赖        | 说明                            |
+| ----- | -------------------------------- | ---------- | ----------- | ------------------------------- |
+| 7.4.1 | React Props 写入（使用官方 API） | 2h         | 7.2.1       | 调用 `renderer.overrideProps()` |
+| 7.4.2 | React Class Component fallback   | 1h         | 7.4.1       | `pendingProps + forceUpdate`    |
+| 7.4.3 | Vue Props 写入                   | 2h         | 7.2.2       | 修改 `instance.props`           |
+| 7.4.4 | Vue 强制更新                     | 1h         | 7.4.3       | `proxy.$forceUpdate()`          |
+| 7.4.5 | Reset 功能                       | 1h         | 7.4.1-7.4.4 | 重置所有 Props 修改             |
+| 7.4.6 | Debounce 输入                    | 1h         | 7.4.5       | 避免高频写入                    |
+
+**React Props 写入（复用 DevTools 官方 API）**:
+
+```javascript
+// 主路径：使用 renderer.overrideProps()（DevTools 官方 API）
+function writeReactProps(fiber, path, value) {
+  const hook = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  if (!hook?.renderers?.size) {
+    return { success: false, error: 'No renderer available' };
+  }
+
+  // 找到有 overrideProps 能力的 renderer
+  for (const [id, renderer] of hook.renderers) {
+    if (typeof renderer.overrideProps === 'function') {
+      // 官方 API：内部处理 props 修改 + 触发更新
+      renderer.overrideProps(fiber, path, value);
+      return { success: true, method: 'overrideProps' };
+    }
+  }
+
+  // Fallback: Class Component 手动处理
+  if (fiber.tag === 1 && fiber.stateNode) {
+    const instance = fiber.stateNode;
+    fiber.pendingProps = copyWithSet(fiber.memoizedProps, path, value);
+    instance.forceUpdate();
+    return { success: true, method: 'classForceUpdate' };
+  }
+
+  return { success: false, error: 'No write capability' };
+}
+```
+
+**Vue 更新策略**:
+
+```javascript
+function writeVueProps(instance, propName, value) {
+  // 1. 修改 props
+  if (instance.props) {
+    instance.props[propName] = value;
+  }
+  if (instance.vnode?.props) {
+    instance.vnode.props[propName] = value;
+  }
+
+  // 2. 强制更新
+  if (instance.proxy?.$forceUpdate) {
+    instance.proxy.$forceUpdate();
+    return { success: true, method: 'vueForceUpdate' };
+  }
+
+  if (instance.update) {
+    instance.update();
+    return { success: true, method: 'vueInstanceUpdate' };
+  }
+
+  return { success: false, error: 'No update method' };
+}
+```
+
+**Reset 功能**:
+
+- 刷新页面是最可靠的 reset 方式
+- Props Tab 提供 "Refresh to Reset" 按钮
+- 明确告知用户：修改是临时的，刷新即可恢复
+
+---
+
+### Phase 7 功能点追踪表
+
+| 功能点 ID | 功能点描述                   | 任务编号    | 优先级 |
+| --------- | ---------------------------- | ----------- | ------ |
+| P1        | Props Agent + Hook 检测/注入 | 7.1.1-7.1.3 | P0     |
+| P2        | Props Bridge 通信层          | 7.1.4       | P0     |
+| P3        | Early-injection 机制         | 7.1.6       | P0     |
+| P4        | React Props 读取             | 7.2.1       | P0     |
+| P5        | Vue Props 读取               | 7.2.2       | P0     |
+| P6        | Props 序列化                 | 7.2.3       | P0     |
+| P7        | Props Tab UI                 | 7.3.1-7.3.7 | P1     |
+| P8        | React Props 写入（官方 API） | 7.4.1-7.4.2 | P1     |
+| P9        | Vue Props 写入               | 7.4.3-7.4.4 | P1     |
+| P10       | Reset 功能                   | 7.4.5       | P1     |
+
+---
+
+### Phase 7 验收标准
+
+#### Phase 7.1 验收 (基础设施 + Hook 管理)
+
+- [ ] Props Agent 成功注入到 MAIN world
+- [ ] 正确检测 4 种 Hook 状态：READY/NO_RENDERERS/NO_EDITING/MISSING
+- [ ] Hook 不存在时成功注入最小 hook
+- [ ] 需要刷新时正确提示用户
+- [ ] Early-injection 注册后，后续导航自动生效
+
+#### Phase 7.2 验收 (Props 读取)
+
+- [ ] 选中 React 组件时能读取到 Props
+- [ ] 选中 Vue 组件时能读取到 Props
+- [ ] `renderer.findFiberByHostInstance` 可用时优先使用
+- [ ] 非可序列化值（函数、Element）正确标记为只读
+
+#### Phase 7.3 验收 (UI)
+
+- [ ] Props Tab 正常切换
+- [ ] Props 列表正确渲染
+- [ ] 不同类型 Props 使用正确的控件
+- [ ] 只读 Props 禁用编辑
+- [ ] 状态提示清晰（需要刷新/需要 Dev 构建/正常可用）
+
+#### Phase 7.4 验收 (写入 + 更新)
+
+- [ ] 修改 Props 后 React Function Component 刷新（使用 overrideProps）
+- [ ] 修改 Props 后 React Class Component 刷新（forceUpdate fallback）
+- [ ] 修改 Props 后 Vue 组件刷新
+- [ ] 更新失败时 UI 有明确提示
+- [ ] "Refresh to Reset" 按钮工作正常
+
+#### 最终验收
+
+- [ ] React (Function Component) Dev 构建页面可用
+- [ ] React (Class Component) Dev 构建页面可用
+- [ ] Vue 3 Dev 构建页面可用
+- [ ] 生产构建检测后提示"需要 Development 构建"
+- [ ] 无内存泄漏（Editor stop 后正确清理）
+- [ ] Hook 早注入后，后续页面自动可用（无需再刷新）

@@ -24,7 +24,12 @@
       "Bash(node:*)",
       "Bash(cat:*)",
       "WebSearch",
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(pnpm install)",
+      "Bash(pnpm test)",
+      "Bash(pnpm compile:*)",
+      "Bash(pnpm run compile)",
+      "Bash(pnpm eslint:*)"
     ],
     "deny": [],
     "ask": []
