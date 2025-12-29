@@ -31,7 +31,15 @@
       "Bash(pnpm run compile)",
       "Bash(pnpm eslint:*)",
       "Bash(pnpm add:*)",
-      "Bash(pnpm test:*)"
+      "Bash(pnpm test:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm view:*)",
+      "Bash(python3:*)",
+      "WebFetch(domain:fastify.dev)",
+      "Bash(grep:*)",
+      "Bash(pnpm -F chrome-mcp-extension run compile:*)",
+      "Bash(pnpm -F native-server run compile:*)",
+      "Bash(pnpm vue-tsc:*)"
     ],
     "deny": [],
     "ask": []
