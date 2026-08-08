@@ -35,23 +35,49 @@
       "steps": [
         {
           "goto": "https://news.ycombinator.com/{{page}}",
-          "until": { "selector": "tr.athing" }
+          "until": {
+            "selector": "tr.athing"
+          }
         },
         {
           "extract": {
             "each": "tr.athing",
             "limit": "{{limit}}",
             "fields": {
-              "id": { "attr": "id" },
-              "rank": { "selector": ".rank", "number": true },
+              "id": {
+                "attr": "id"
+              },
+              "rank": {
+                "selector": ".rank",
+                "number": true
+              },
               "title": ".titleline > a",
-              "url": { "selector": ".titleline > a", "prop": "href" },
-              "site": { "selector": ".sitestr", "fallback": null },
-              "score": { "selector": ".score", "number": true, "from": "next", "fallback": 0 },
-              "by": { "selector": ".hnuser", "from": "next", "fallback": null },
-              "age": { "selector": ".age", "from": "next", "fallback": null },
+              "url": {
+                "selector": ".titleline > a",
+                "prop": "href"
+              },
+              "site": {
+                "selector": ".sitestr",
+                "fallback": null
+              },
+              "score": {
+                "selector": ".score",
+                "number": true,
+                "from": "next",
+                "fallback": 0
+              },
+              "by": {
+                "selector": ".hnuser",
+                "from": "next",
+                "fallback": null
+              },
+              "age": {
+                "selector": ".age",
+                "from": "next",
+                "fallback": null
+              },
               "comments": {
-                "selector": "a[href^='item?id=']:last-of-type",
+                "selector": ".subline > a:last-child",
                 "number": true,
                 "from": "next",
                 "fallback": 0
@@ -70,7 +96,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "id": { "type": "string", "description": "Story id, e.g. \"49224294\"" },
+          "id": {
+            "type": "string",
+            "description": "Story id, e.g. \"49224294\""
+          },
           "limit": {
             "type": "integer",
             "description": "How many comments to return",
@@ -84,7 +113,9 @@
       "steps": [
         {
           "goto": "https://news.ycombinator.com/item?id={{id|url}}",
-          "until": { "selector": ".fatitem" }
+          "until": {
+            "selector": ".fatitem"
+          }
         },
         {
           "extract": {
@@ -93,23 +124,31 @@
             "fields": {
               "by": ".hnuser",
               "age": ".age",
-              "indent": { "selector": ".ind", "attr": "indent", "number": true, "fallback": 0 },
+              "indent": {
+                "selector": ".ind",
+                "attr": "indent",
+                "number": true,
+                "fallback": 0
+              },
               "text": ".commtext"
             }
           }
         }
       ]
     },
-    "search": {
-      "description": "Search Hacker News stories by keyword, through the site's own search page.",
-      "returns": "A list of matching stories with title, url and score.",
+    "stories_from_site": {
+      "description": "List Hacker News stories from one site, newest first. Give it a domain, not a keyword.",
+      "returns": "A list of stories from that domain, with title, url, score and author.",
       "risk": "read",
       "capabilities": ["navigate", "read"],
       "requiresConfirm": false,
       "inputSchema": {
         "type": "object",
         "properties": {
-          "query": { "type": "string", "description": "What to search for" },
+          "site": {
+            "type": "string",
+            "description": "Domain to list, e.g. \"fastmail.com\""
+          },
           "limit": {
             "type": "integer",
             "description": "How many results to return",
@@ -118,23 +157,45 @@
             "maximum": 30
           }
         },
-        "required": ["query"]
+        "required": ["site"]
       },
       "steps": [
         {
-          "goto": "https://news.ycombinator.com/from?site={{query|url}}",
-          "until": { "selector": "tr.athing" }
+          "goto": "https://news.ycombinator.com/from?site={{site|url}}",
+          "until": {
+            "selector": "tr.athing"
+          }
         },
         {
           "extract": {
             "each": "tr.athing",
             "limit": "{{limit}}",
             "fields": {
-              "id": { "attr": "id" },
+              "id": {
+                "attr": "id"
+              },
               "title": ".titleline > a",
-              "url": { "selector": ".titleline > a", "prop": "href" },
-              "score": { "selector": ".score", "number": true, "from": "next", "fallback": 0 },
-              "by": { "selector": ".hnuser", "from": "next", "fallback": null }
+              "url": {
+                "selector": ".titleline > a",
+                "prop": "href"
+              },
+              "score": {
+                "selector": ".score",
+                "number": true,
+                "from": "next",
+                "fallback": 0
+              },
+              "by": {
+                "selector": ".hnuser",
+                "from": "next",
+                "fallback": null
+              },
+              "comments": {
+                "selector": ".subline > a:last-child",
+                "number": true,
+                "from": "next",
+                "fallback": 0
+              }
             }
           }
         }
