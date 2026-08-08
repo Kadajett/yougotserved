@@ -4,23 +4,31 @@ Two artifacts ship separately. The extension goes to the Chrome Web Store. The
 bridge goes to npm. They must match, because the native host trusts one
 extension ID.
 
-## Blocker: extension permissions
+## Extension permissions
 
-The manifest currently asks for `debugger`, `history`, `bookmarks`, `webRequest`
-and `<all_urls>`. That set draws a hostile review, and `debugger` with
-`<all_urls>` is the worst pair. Fix this before the first submission.
+The manifest asked for 16 permissions. It now asks for 13. `history`,
+`bookmarks` and `declarativeNetRequest` are gone, with the four tools that used
+them. Those tools read the whole browsing history and the whole bookmark tree,
+which no site adapter needs.
 
-Reviewers reject broad permissions when the listing does not justify each one.
-Each removal below is a prerequisite, not a follow-up.
+Two items still need work before the first submission. `debugger` with
+`<all_urls>` is the pair a reviewer questions first, so the listing must justify
+both in plain words.
 
-| Permission              | Used by                      | Action                                   |
-| ----------------------- | ---------------------------- | ---------------------------------------- |
-| `debugger`              | File upload, network capture | Keep. Justify it in the listing          |
-| `<all_urls>`            | Every content script         | Replace with `optional_host_permissions` |
-| `history`               | The removed vector cluster   | Remove                                   |
-| `bookmarks`             | Bookmark tools               | Remove, or move behind an option         |
-| `webRequest`            | Network capture              | Remove if `debugger` covers the case     |
-| `declarativeNetRequest` | Nothing now                  | Remove                                   |
+| Permission              | Used by                      | State                                  |
+| ----------------------- | ---------------------------- | -------------------------------------- |
+| `debugger`              | File upload, network capture | Keep. Justify it in the listing        |
+| `<all_urls>`            | Every content script         | Open. Replace with per-origin requests |
+| `webRequest`            | Network capture              | Open. Remove if `debugger` covers it   |
+| `history`               | Removed                      | Done                                   |
+| `bookmarks`             | Removed                      | Done                                   |
+| `declarativeNetRequest` | Nothing                      | Done                                   |
+
+### Why the two were removed, not made optional
+
+`chrome.permissions.request` needs a user gesture. A tool call arrives in the
+service worker with no gesture, so an optional `history` or `bookmarks` tool
+could never grant itself. Removal was the honest option.
 
 ## Signing keys
 

@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "chrome-mcp-server",
+    "message": "youGotServed",
     "description": "Erweiterungsname"
   },
   "extensionDescription": {
-    "message": "Stellt Browser-Funktionen mit Ihrem eigenen Chrome zur Verfügung",
+    "message": "Site-Tools, die in dem Chrome-Browser laufen, bei dem Sie schon angemeldet sind.",
     "description": "Erweiterungsbeschreibung"
   },
   "nativeServerConfigLabel": {

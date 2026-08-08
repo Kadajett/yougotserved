@@ -47,11 +47,8 @@ export default defineConfig({
       'webRequest',
       'webNavigation',
       'debugger',
-      'history',
-      'bookmarks',
       'offscreen',
       'storage',
-      'declarativeNetRequest',
       'alarms',
       // Allow programmatic control of Chrome Side Panel
       'sidePanel',
@@ -63,7 +60,7 @@ export default defineConfig({
     },
     action: {
       default_popup: 'popup.html',
-      default_title: 'Chrome MCP Server',
+      default_title: 'youGotServed',
     },
     // Chrome Side Panel entry for workflow management
     // Ref: https://developer.chrome.com/docs/extensions/reference/api/sidePanel

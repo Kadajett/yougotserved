@@ -1,10 +1,10 @@
 {
   "extensionName": {
-    "message": "chrome-mcp-server",
+    "message": "youGotServed",
     "description": "확장 프로그램 이름"
   },
   "extensionDescription": {
-    "message": "크롬 브라우저와 연동하여 브라우저 기능을 제어하는 MCP 서버입니다.",
+    "message": "이미 로그인한 Chrome 브라우저에서 실행되는 사이트 도구입니다.",
     "description": "확장 프로그램 설명"
   },
   "nativeServerConfigLabel": {
