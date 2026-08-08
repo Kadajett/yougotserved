@@ -24,19 +24,24 @@ export const handleCallTool = async (param: ToolCallParam) => {
     return createErrorResponse(`Tool ${param.name} not found`);
   }
 
+  // An adapter tool is many browser calls, and it names itself here so the
+  // activity panel can say which one moved the browser. The key is stripped
+  // before the tool runs, so no tool has to know about it.
+  const { _ygsVia: via, ...args } = param.args ?? {};
+
   // Every call is recorded here, working or not, because this is the one place
   // they all pass through. A failed call is often the interesting one.
   const started = Date.now();
   try {
-    const result = await tool.execute(param.args);
-    record(param.name, param.args, result, Date.now() - started, param.args?.tabId);
+    const result = await tool.execute(args);
+    record(param.name, args, result, Date.now() - started, args?.tabId, via);
     return result;
   } catch (error) {
     console.error(`Tool execution failed for ${param.name}:`, error);
     const failure = createErrorResponse(
       error instanceof Error ? error.message : ERROR_MESSAGES.TOOL_EXECUTION_FAILED,
     );
-    record(param.name, param.args, failure, Date.now() - started, param.args?.tabId);
+    record(param.name, args, failure, Date.now() - started, args?.tabId, via);
     return failure;
   }
 };

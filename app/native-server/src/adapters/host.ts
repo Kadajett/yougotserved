@@ -149,7 +149,19 @@ export async function handlePackTool(
     if (!checked.ok) return text({ error: checked.errors.join(' '), code: 'invalid' }, true);
 
     const guard = sdk.createUrlGuard(entry.pack.origins);
-    const session = new McpBrowserSession(entry.pack, call, controller.signal, guard);
+
+    // Every browser call this tool makes carries the call that asked for it.
+    // Without this the activity panel shows a bare chrome_navigate and the
+    // person watching cannot tell which adapter moved their browser.
+    //
+    // It rides inside the arguments because the call crosses two hops to reach
+    // the extension, and arguments are the only thing both forward verbatim.
+    // The extension strips the key before the tool sees it.
+    const via = { adapter: entry.pack.id, tool: name, args: checked.value };
+    const attributed: ChromeCall = (toolName, toolArgs) =>
+      call(toolName, { ...toolArgs, _ygsVia: via });
+
+    const session = new McpBrowserSession(entry.pack, attributed, controller.signal, guard);
 
     const result = await sdk.runSteps(session as never, tool.steps, {
       params: checked.value as never,

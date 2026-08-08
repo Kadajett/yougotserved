@@ -91,9 +91,13 @@ export default defineContentScript({
           (e) => `
         <li class="row ${e.ok ? '' : 'bad'}" data-act="detail" data-id="${escapeHtml(e.id)}">
           <span class="tick"></span>
-          <span class="tool">${escapeHtml(e.tool)}</span>
+          <span class="tool">${
+            e.via
+              ? `<span class="via">${escapeHtml(e.via.tool)}</span> ${escapeHtml(e.tool)}`
+              : escapeHtml(e.tool)
+          }</span>
           <span class="ms">${e.ms}ms</span>
-          <span class="args">${escapeHtml(summarise(e.args))}</span>
+          <span class="args">${escapeHtml(summarise(e.via ? e.via.args : e.args))}</span>
         </li>`,
         )
         .join('');
@@ -131,6 +135,12 @@ export default defineContentScript({
             <button class="x" data-act="close" title="Collapse">&times;</button>
           </header>
           <div class="scroll">
+            ${
+              entry.via
+                ? `<div class="label">Asked for by ${escapeHtml(entry.via.adapter)} · ${escapeHtml(entry.via.tool)}</div>
+            <pre class="code">${highlightJson(entry.via.args)}</pre>`
+                : ''
+            }
             <div class="label">
               Input
               <button class="ico" data-act="copy" data-which="in" data-id="${escapeHtml(entry.id)}">${copyLabel('in')}</button>
@@ -316,7 +326,15 @@ const CSS = `
   background: #4a7c4e; align-self: center;
 }
 .row.bad .tick { background: #b3271e; }
-.tool { grid-column: 2; grid-row: 1; font-weight: 600; }
+.tool {
+  grid-column: 2; grid-row: 1; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* The adapter tool leads, because that is the call the person made. */
+.via {
+  background: #b3271e; color: #fff; border-radius: 4px;
+  padding: 1px 5px; font-size: 11px; font-weight: 700;
+}
 .ms { grid-column: 3; grid-row: 1; color: #8b8071; font-size: 11px; }
 .args {
   grid-column: 2 / 4; grid-row: 2; color: #6d6152; font-size: 11px;

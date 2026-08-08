@@ -20,11 +20,25 @@ export const ACTIVITY_OPEN_KEY = 'ygs.overlay.open';
 const MAX_PER_TAB = 40;
 const MAX_TEXT = 20_000;
 
+/**
+ * The adapter tool a browser call was made for.
+ *
+ * Attribution, not proof. Anything already allowed to call the browser could
+ * state a name here, so the panel shows it beside the real tool rather than
+ * in place of it.
+ */
+export interface ActivityVia {
+  adapter: string;
+  tool: string;
+  args: unknown;
+}
+
 export interface ActivityEntry {
   id: string;
   tool: string;
   /** What the agent passed in. The point of the whole panel. */
   args: unknown;
+  via?: ActivityVia;
   ok: boolean;
   /** Full result text, capped. The overlay truncates for the list view. */
   result: string;
@@ -85,7 +99,14 @@ chrome.storage?.onChanged?.addListener((changes, area) => {
   }
 });
 
-export function record(tool: string, args: unknown, result: unknown, ms: number, tabId?: number) {
+export function record(
+  tool: string,
+  args: unknown,
+  result: unknown,
+  ms: number,
+  tabId?: number,
+  via?: ActivityVia,
+) {
   // Checked here rather than in the overlay, so turning it off stops the work
   // and the message, not just the drawing.
   if (!enabled) return;
@@ -95,6 +116,10 @@ export function record(tool: string, args: unknown, result: unknown, ms: number,
     id: `${Date.now()}-${counter++}`,
     tool,
     args: redact(args),
+    via:
+      via && typeof via.tool === 'string'
+        ? { adapter: String(via.adapter ?? ''), tool: via.tool, args: redact(via.args) }
+        : undefined,
     ok,
     result: text,
     ms,
