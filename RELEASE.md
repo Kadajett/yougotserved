@@ -60,11 +60,22 @@ ygs register --extension-id <the production id>
 
 ## Step 2: publish the bridge to npm
 
-The extension welcome page tells users to install this package. Publish it first,
-or the install screen points at nothing.
+The extension welcome page tells users to install this package. Publish it
+first, or the install screen points at nothing. `prepack` refuses to build a
+tarball that declares a workspace dependency.
 
 ```bash
 pnpm --filter ygs-bridge build && npm publish
+```
+
+### Always install the tarball before you trust a publish
+
+Version 0.1.0 shipped two `workspace:*` dependencies and could not be installed
+by anyone. It built, packed and uploaded without a complaint, and it ran on a
+machine that had the workspace. Only a clean install shows this.
+
+```bash
+npm pack && cd $(mktemp -d) && npm init -y && npm install <path>/ygs-bridge-*.tgz
 ```
 
 ## Step 3: submit the extension
