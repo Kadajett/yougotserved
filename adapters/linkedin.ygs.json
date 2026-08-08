@@ -1,0 +1,49 @@
+{
+  "capabilities": ["navigate", "read"],
+  "description": "Search people and read profiles with your own LinkedIn session.",
+  "format": 1,
+  "id": "linkedin",
+  "name": "LinkedIn",
+  "origins": ["https://www.linkedin.com"],
+  "tools": {
+    "search_people": {
+      "capabilities": ["navigate", "read"],
+      "description": "Search LinkedIn for people. Returns name and profile URL for each result.",
+      "inputSchema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": { "default": 10, "description": "How many", "maximum": 50, "type": "integer" },
+          "query": { "description": "Search terms", "type": "string" }
+        },
+        "required": ["query"],
+        "type": "object"
+      },
+      "requiresConfirm": false,
+      "risk": "read",
+      "steps": [
+        {
+          "goto": "https://www.linkedin.com/search/results/people/?keywords={{query|url}}",
+          "until": { "selector": "main [role=\"list\"]" }
+        },
+        {
+          "assert": {
+            "code": "not_authenticated",
+            "hint": "Sign in, then retry.",
+            "message": "LinkedIn showed the signed-out page.",
+            "selector": "main [role=\"listitem\"]"
+          }
+        },
+        {
+          "extract": {
+            "each": "main [role=\"list\"] [role=\"listitem\"]",
+            "fields": {
+              "name": "a[href*=\"/in/\"] span[aria-hidden=\"true\"]",
+              "profileUrl": { "prop": "href", "selector": "a[href*=\"/in/\"]" }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "version": "0.2.0"
+}
