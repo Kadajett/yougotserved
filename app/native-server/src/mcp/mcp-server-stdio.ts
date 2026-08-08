@@ -10,6 +10,7 @@ import {
   ListPromptsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { TOOL_SCHEMAS } from 'chrome-mcp-shared';
+import { REGISTRY_TOOLS, handleRegistryTool, isRegistryTool } from '../adapters/registry-tools';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import * as fs from 'fs';
@@ -75,7 +76,11 @@ export const ensureMcpClient = async () => {
 
 export const setupTools = (server: Server) => {
   // List tools handler
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOL_SCHEMAS }));
+  // Registry tools are served from this process. They reach the registry over
+  // HTTP and never touch a page, so they work with no extension connected.
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: [...TOOL_SCHEMAS, ...REGISTRY_TOOLS],
+  }));
 
   // Call tool handler
   server.setRequestHandler(CallToolRequestSchema, async (request) =>
@@ -91,6 +96,11 @@ export const setupTools = (server: Server) => {
 
 const handleToolCall = async (name: string, args: any): Promise<CallToolResult> => {
   try {
+    // Answered locally, before the browser bridge is even needed.
+    if (isRegistryTool(name)) {
+      return await handleRegistryTool(name, args || {});
+    }
+
     const client = await ensureMcpClient();
     if (!client) {
       throw new Error('Failed to connect to MCP server');

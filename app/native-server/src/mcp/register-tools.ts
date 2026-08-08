@@ -5,6 +5,7 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import nativeMessagingHostInstance from '../native-messaging-host';
+import { REGISTRY_TOOLS, handleRegistryTool, isRegistryTool } from '../adapters/registry-tools';
 import { NativeMessageType, TOOL_SCHEMAS } from 'chrome-mcp-shared';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 
@@ -70,7 +71,9 @@ export const setupTools = (server: Server) => {
   // List tools handler
   server.setRequestHandler(ListToolsRequestSchema, async () => {
     const dynamicTools = await listDynamicFlowTools();
-    return { tools: [...TOOL_SCHEMAS, ...dynamicTools] };
+    // Registry tools run in this process, not the browser, so they are listed
+    // whether or not the extension is connected.
+    return { tools: [...TOOL_SCHEMAS, ...REGISTRY_TOOLS, ...dynamicTools] };
   });
 
   // Call tool handler
@@ -81,6 +84,11 @@ export const setupTools = (server: Server) => {
 
 const handleToolCall = async (name: string, args: any): Promise<CallToolResult> => {
   try {
+    // Handled here rather than forwarded, because these talk to the registry
+    // over HTTP and never touch a page.
+    if (isRegistryTool(name)) {
+      return await handleRegistryTool(name, args || {});
+    }
     // If calling a dynamic flow tool (name starts with flow.), proxy to common flow-run tool
     if (name && name.startsWith('flow.')) {
       // We need to resolve flow by slug to ID
@@ -117,14 +125,14 @@ const handleToolCall = async (name: string, args: any): Promise<CallToolResult> 
         };
       }
     }
-    // 发送请求到Chrome扩展并等待响应
+    // Forward to the extension and wait for the reply.
     const response = await nativeMessagingHostInstance.sendRequestToExtensionAndWait(
       {
         name,
         args,
       },
       NativeMessageType.CALL_TOOL,
-      120000, // 延长到 120 秒，避免性能分析等长任务超时
+      120000, // 120s: performance traces and long flows need the headroom.
     );
     if (response.status === 'success') {
       return response.data;

@@ -49,7 +49,8 @@
     "is-admin": "^4.0.0",
     "node-fetch": "2",
     "pino": "^9.6.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "@yougotserved/adapter-sdk": "workspace:*"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
