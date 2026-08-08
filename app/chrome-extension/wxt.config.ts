@@ -90,14 +90,12 @@ export default defineConfig({
         description: 'Toggle Quick Panel AI Chat',
       },
     },
-    web_accessible_resources: [
-      {
-        resources: [
-          '/inject-scripts/*', // helper scripts injected by content scripts
-        ],
-        matches: ['<all_urls>'],
-      },
-    ],
+    // No web_accessible_resources.
+    //
+    // Every helper in inject-scripts/ is loaded with
+    // chrome.scripting.executeScript({ files }), which reads from the package
+    // and does not need the resource to be web accessible. Declaring it let any
+    // page fetch all 14 helpers and detect the extension by asking for one.
     // These policies block the dev server from loading resources, so they are
     // production-only; development uses WXT defaults.
     ...(IS_DEV
