@@ -22,11 +22,19 @@ ygs doctor
 
 ## Use
 
-An adapter turns a site into a small set of typed tools. Point your MCP client
-at one adapter, and the tools arrive with plain names.
+An adapter turns a site into a small set of typed tools. Your agent finds one
+and installs it without leaving the session. The new tools then have plain
+names, such as `linkedin_search_people`.
 
-```bash
-ygs serve --adapter linkedin
+Install shows the origins and the capabilities first, and stops. It writes
+nothing until you agree. The host checks each argument against the pack, and
+each page address against the pack origins.
+
+```text
+ygs_search_adapters { "query": "linkedin" }
+ygs_install_adapter { "id": "linkedin" }             -> shows the reach, refuses
+ygs_install_adapter { "id": "linkedin", "confirm": true }
+linkedin_search_people { "query": "rust compilers", "limit": 10 }
 ```
 
 ## Write an adapter

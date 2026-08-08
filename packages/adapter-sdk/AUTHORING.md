@@ -26,10 +26,14 @@ repeating row selector and the field selectors inside it. Budget for this step:
 a first pass over LinkedIn used about 50 calls and 45,000 to 55,000 tokens. The
 payback is about six sessions against the generic schema.
 
+Use `chrome_read_page` once to find the row. Then test each candidate selector
+with `chrome_extract`, which returns only the fields you name. Reading the page
+again for each try is what makes discovery expensive.
+
 ```text
 Open https://www.linkedin.com/search/results/people/?keywords=rust
-Use chrome_read_page to find the repeating result row and the fields
-inside it. Confirm each selector with a live DOM query.
+Use chrome_read_page once to find the repeating result row.
+Then test each selector with chrome_extract and a small limit.
 Report the selectors, not the content.
 ```
 
