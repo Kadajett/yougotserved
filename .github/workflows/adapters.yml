@@ -1,0 +1,52 @@
+# Checks adapter packs on a pull request, and publishes them on a merge.
+#
+# This publishes to the adapter registry only. It does not create a GitHub
+# release, and it does not build or upload the extension.
+name: adapters
+
+on:
+  pull_request:
+    paths:
+      - 'adapters/**'
+      - 'packages/adapter-sdk/**'
+      - 'scripts/adapters.mjs'
+  push:
+    branches: [master]
+    paths:
+      - 'adapters/**'
+
+permissions:
+  contents: read
+
+jobs:
+  adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The script loads the SDK from dist, so the SDK has to be built first.
+      - run: pnpm --filter @yougotserved/adapter-sdk build
+
+      - run: pnpm --filter @yougotserved/adapter-sdk test
+
+      - name: Check every pack
+        run: node scripts/adapters.mjs check
+
+      # Only on master. A pull request from a fork must never reach the token.
+      - name: Publish
+        if: github.event_name == 'push'
+        env:
+          YGS_PUBLISH_TOKEN: ${{ secrets.YGS_PUBLISH_TOKEN }}
+          YGS_REGISTRY_URL: ${{ vars.YGS_REGISTRY_URL }}
+        run: node scripts/adapters.mjs publish
