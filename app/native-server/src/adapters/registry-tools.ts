@@ -20,10 +20,10 @@ import * as path from 'path';
  *
  * This must be a host the project actually controls. An unregistered name here
  * is a supply-chain hole: it ships inside every install, so whoever registers
- * it first would serve adapter code to all of them. Point it at a friendly
- * domain only once that domain is registered and pointed at this Worker.
+ * it first would serve adapter code to all of them. yougotserved.dev is
+ * registered and its zone is ours, so this name cannot be taken from under us.
  */
-const DEFAULT_REGISTRY = 'https://yougotserved-registry.jeremy-ryan-stover.workers.dev';
+const DEFAULT_REGISTRY = 'https://registry.yougotserved.dev';
 
 export const REGISTRY_TOOL_NAMES = {
   SEARCH: 'ygs_search_adapters',
