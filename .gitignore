@@ -53,3 +53,9 @@ releases/
 
 # Scratch output from local adapter runs.
 .adapter-runtime/
+
+# Local Worker secrets. Real ones live in Wrangler secrets.
+.dev.vars
+
+# Wrangler build output and local D1 state.
+.wrangler/

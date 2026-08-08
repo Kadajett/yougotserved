@@ -1,5 +1,6 @@
 packages:
   - 'app/*'
+  - 'apps/*'
   - 'packages/*'
 
 # pnpm 10 blocks lifecycle scripts unless a dependency is listed here.
@@ -8,3 +9,5 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - sharp
+  # workerd is the Workers runtime that `wrangler dev` runs the registry on.
+  - workerd

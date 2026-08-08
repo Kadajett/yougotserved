@@ -1,0 +1,18 @@
+name = "yougotserved-registry"
+main = "src/index.ts"
+compatibility_date = "2026-01-15"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 free tier: 5 GB storage and 5 million row reads each day. A pack is a few
+# kilobytes, so this stays free for a long time.
+[[d1_databases]]
+binding = "DB"
+database_name = "yougotserved-registry"
+database_id = "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+
+[observability]
+enabled = true
+
+# Secrets are never in this file. Set them once for each environment:
+#   wrangler secret put PUBLISH_TOKEN
+#   wrangler secret put VOTER_SALT
