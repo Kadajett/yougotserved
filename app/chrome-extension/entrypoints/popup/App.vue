@@ -94,6 +94,16 @@
               <MarkerIcon />
             </button>
           </div>
+
+          <label class="audit-row">
+            <input type="checkbox" v-model="auditOn" @change="saveAudit" />
+            <span class="audit-text">
+              <span class="audit-title">Show activity on the page</span>
+              <span class="audit-desc"
+                >A panel listing what an agent did, and the inputs it used</span
+              >
+            </span>
+          </label>
         </div>
 
         <!-- Management -->
@@ -272,6 +282,13 @@ const { theme: agentTheme, initTheme } = useAgentTheme();
 
 // Current view
 const currentView = ref<'home' | 'local-model'>('home');
+
+// The overlay's own "off" button writes this key, so the popup is the way back.
+const AUDIT_KEY = 'ygs.overlay.enabled';
+const auditOn = ref(true);
+async function saveAudit() {
+  await chrome.storage.local.set({ [AUDIT_KEY]: auditOn.value });
+}
 
 // Coming Soon Toast
 const comingSoonToast = ref<{ show: boolean; feature: string }>({ show: false, feature: '' });
@@ -695,6 +712,11 @@ const setupServerStatusListener = () => {
 onMounted(async () => {
   // Initialise theme
   await initTheme();
+
+  const stored = await chrome.storage.local
+    .get(AUDIT_KEY)
+    .catch(() => ({}) as Record<string, unknown>);
+  auditOn.value = stored[AUDIT_KEY] !== false;
   await loadPortPreference();
   await checkNativeConnection();
   await checkServerStatus();
@@ -737,6 +759,39 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.audit-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.audit-row input {
+  margin-top: 2px;
+  width: 14px;
+  height: 14px;
+  accent-color: #b3271e;
+  flex-shrink: 0;
+}
+.audit-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.audit-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+.audit-desc {
+  font-size: 11px;
+  opacity: 0.7;
+  line-height: 1.35;
+}
+
 .popup-container {
   background: #f1f5f9;
   border-radius: 24px;

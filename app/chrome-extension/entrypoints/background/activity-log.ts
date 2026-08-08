@@ -11,6 +11,10 @@
 
 export const ACTIVITY_MESSAGE = 'ygs:activity';
 export const ACTIVITY_REQUEST = 'ygs:activity:list';
+export const ACTIVITY_CLEAR = 'ygs:activity:clear';
+/** Storage keys. The overlay and the popup both read these. */
+export const ACTIVITY_ENABLED_KEY = 'ygs.overlay.enabled';
+export const ACTIVITY_OPEN_KEY = 'ygs.overlay.open';
 
 /** Kept small. This lives in the service worker, which Chrome stops at will. */
 const MAX_PER_TAB = 40;
@@ -67,7 +71,25 @@ function resultText(result: unknown): { ok: boolean; text: string } {
   return { ok, text: cap(text || (ok ? 'done' : 'failed')) };
 }
 
+let enabled = true;
+void chrome.storage?.local
+  ?.get(ACTIVITY_ENABLED_KEY)
+  .then((stored) => {
+    if (stored?.[ACTIVITY_ENABLED_KEY] === false) enabled = false;
+  })
+  .catch(() => undefined);
+
+chrome.storage?.onChanged?.addListener((changes, area) => {
+  if (area === 'local' && ACTIVITY_ENABLED_KEY in changes) {
+    enabled = changes[ACTIVITY_ENABLED_KEY].newValue !== false;
+  }
+});
+
 export function record(tool: string, args: unknown, result: unknown, ms: number, tabId?: number) {
+  // Checked here rather than in the overlay, so turning it off stops the work
+  // and the message, not just the drawing.
+  if (!enabled) return;
+
   const { ok, text } = resultText(result);
   const entry: ActivityEntry = {
     id: `${Date.now()}-${counter++}`,
@@ -106,6 +128,10 @@ async function deliver(entry: ActivityEntry, tabId?: number): Promise<void> {
 
 export function entriesFor(tabId: number): ActivityEntry[] {
   return byTab.get(tabId) ?? [];
+}
+
+export function clearFor(tabId: number): void {
+  byTab.delete(tabId);
 }
 
 chrome.tabs?.onRemoved?.addListener((tabId) => byTab.delete(tabId));

@@ -2,7 +2,7 @@ import { createErrorResponse } from '@/common/tool-handler';
 import { ERROR_MESSAGES } from '@/common/constants';
 import * as browserTools from './browser';
 import { flowRunTool, listPublishedFlowsTool } from './record-replay';
-import { ACTIVITY_REQUEST, entriesFor, record } from '../activity-log';
+import { ACTIVITY_CLEAR, ACTIVITY_REQUEST, clearFor, entriesFor, record } from '../activity-log';
 
 const tools = { ...browserTools, flowRunTool, listPublishedFlowsTool } as any;
 const toolsMap = new Map(Object.values(tools).map((tool: any) => [tool.name, tool]));
@@ -43,7 +43,15 @@ export const handleCallTool = async (param: ToolCallParam) => {
 
 // A tab that reloads has lost its list, so the overlay asks for it again.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message?.type !== ACTIVITY_REQUEST) return undefined;
-  sendResponse({ entries: sender.tab?.id === undefined ? [] : entriesFor(sender.tab.id) });
-  return true;
+  const tabId = sender.tab?.id;
+  if (message?.type === ACTIVITY_REQUEST) {
+    sendResponse({ entries: tabId === undefined ? [] : entriesFor(tabId) });
+    return true;
+  }
+  if (message?.type === ACTIVITY_CLEAR) {
+    if (tabId !== undefined) clearFor(tabId);
+    sendResponse({ ok: true });
+    return true;
+  }
+  return undefined;
 });
