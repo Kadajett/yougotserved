@@ -83,147 +83,174 @@ export class ExtractError extends Error {
 /** The slice of the DOM the interpreter touches, so it can be tested headless. */
 type Queryable = Pick<Element, 'querySelector' | 'querySelectorAll'>;
 
-const MAX_RECORDS = 1000;
-
+/**
+ * Reads a page against a spec.
+ *
+ * Every helper is nested inside this function on purpose. The extension injects
+ * it into the tab with `chrome.scripting.executeScript({ func })`, which
+ * stringifies the function and drops its closure. A reference to anything in
+ * this module would survive the type checker and then fail at runtime, in the
+ * page, where the error is hard to read. Nesting makes that impossible.
+ *
+ * So this is the only copy of the extract rules. The host, the tests and the
+ * page all run these exact lines.
+ */
 export function runExtractSpec(
   spec: ExtractSpec,
-  root: Queryable,
+  root?: Queryable,
 ): ExtractedRecord | ExtractedRecord[] {
-  if (!spec || typeof spec !== 'object' || !spec.fields) {
-    throw new ExtractError('An extract spec needs a "fields" object.');
+  /** Not the exported class: that name is not in scope inside the page. */
+  function fail(message: string): never {
+    const error = new Error(message);
+    error.name = 'ExtractError';
+    throw error;
   }
 
-  if (!spec.each) return readFields(spec.fields, root);
+  // `root` is optional so the extension can inject this function as-is and pass
+  // only the spec. A document reference cannot cross that boundary.
+  const scope = root ?? (globalThis as { document?: Queryable }).document;
+  if (!scope) fail('No document to extract from.');
 
+  if (!spec || typeof spec !== 'object' || !spec.fields) {
+    fail('An extract spec needs a "fields" object.');
+  }
+
+  if (!spec.each) return readFields(spec.fields, scope);
+
+  // 1000 is written twice rather than held in a named constant. The extension
+  // bundler hoists a function-local `const` to module scope, which breaks the
+  // injected copy. `scripts/check-injected-runner.js` proves it stays fixed.
   const offset = Math.max(0, spec.offset ?? 0);
-  const limit = Math.min(spec.limit ?? MAX_RECORDS, MAX_RECORDS);
-  const matches = Array.from(root.querySelectorAll(spec.each));
+  const limit = Math.min(spec.limit ?? 1000, 1000);
+  const matches = Array.from(scope.querySelectorAll(spec.each));
   const records: ExtractedRecord[] = [];
 
   for (const element of matches.slice(offset, offset + limit)) {
     records.push(readFields(spec.fields, element));
   }
   return records;
-}
 
-function readFields(fields: Record<string, FieldSpec>, scope: Queryable): ExtractedRecord {
-  const record: ExtractedRecord = {};
-  for (const [name, field] of Object.entries(fields)) {
-    record[name] = readField(normalise(field), scope);
-  }
-  return record;
-}
+  /* Helpers. Declarations, so they hoist above the lines that use them. */
 
-function normalise(field: FieldSpec): FieldSpecObject {
-  return typeof field === 'string' ? { selector: field } : field;
-}
-
-function readField(field: FieldSpecObject, scope: Queryable): ExtractedValue {
-  const elements = select(field, scope);
-
-  if (field.exists) return elements.length > 0;
-
-  if (elements.length === 0) {
-    if (field.fallback !== undefined) return field.fallback;
-    return field.all ? [] : null;
-  }
-
-  if (field.all) return elements.map((element) => readOne(field, element));
-
-  // `elements` is non-empty here, but noUncheckedIndexedAccess does not know it.
-  const first = elements[0];
-  return first === undefined ? null : readOne(field, first);
-}
-
-function select(field: FieldSpecObject, scope: Queryable): Element[] {
-  if (!field.selector) {
-    // No selector means the scope itself. A record root is an Element; the
-    // document is not, and has no fields of its own worth reading.
-    return isElement(scope) ? [scope] : [];
-  }
-  try {
-    return field.all
-      ? Array.from(scope.querySelectorAll(field.selector))
-      : elementOrNone(scope.querySelector(field.selector));
-  } catch (error) {
-    throw new ExtractError(
-      `Selector ${JSON.stringify(field.selector)} is not valid CSS: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
-
-function elementOrNone(element: Element | null): Element[] {
-  return element ? [element] : [];
-}
-
-function isElement(value: unknown): value is Element {
-  return typeof value === 'object' && value !== null && 'tagName' in value;
-}
-
-function readOne(field: FieldSpecObject, element: Element): ExtractedValue {
-  if (field.fields) return readFields(field.fields, element);
-
-  let value = rawValue(field, element);
-  if (value === null) return field.fallback ?? null;
-
-  if (typeof value === 'string') {
-    if (field.trim ?? !field.html) value = collapse(value);
-    if (field.regex) {
-      const match = new RegExp(field.regex).exec(value);
-      if (!match) return field.fallback ?? null;
-      value = match[field.regexGroup ?? 1] ?? match[0] ?? '';
+  function readFields(fields: Record<string, FieldSpec>, scope: Queryable): ExtractedRecord {
+    const record: ExtractedRecord = {};
+    for (const [name, field] of Object.entries(fields)) {
+      record[name] = readField(normalise(field), scope);
     }
-    if (field.number) {
-      const parsed = parseNumber(value);
-      return parsed ?? (field.fallback as number | null) ?? null;
+    return record;
+  }
+
+  function normalise(field: FieldSpec): FieldSpecObject {
+    return typeof field === 'string' ? { selector: field } : field;
+  }
+
+  function readField(field: FieldSpecObject, scope: Queryable): ExtractedValue {
+    const elements = select(field, scope);
+
+    if (field.exists) return elements.length > 0;
+
+    if (elements.length === 0) {
+      if (field.fallback !== undefined) return field.fallback;
+      return field.all ? [] : null;
+    }
+
+    if (field.all) return elements.map((element) => readOne(field, element));
+
+    // `elements` is non-empty here, but noUncheckedIndexedAccess does not know it.
+    const first = elements[0];
+    return first === undefined ? null : readOne(field, first);
+  }
+
+  function select(field: FieldSpecObject, scope: Queryable): Element[] {
+    if (!field.selector) {
+      // No selector means the scope itself. A record root is an Element; the
+      // document is not, and has no fields of its own worth reading.
+      return isElement(scope) ? [scope] : [];
+    }
+    try {
+      return field.all
+        ? Array.from(scope.querySelectorAll(field.selector))
+        : elementOrNone(scope.querySelector(field.selector));
+    } catch (error) {
+      fail(
+        `Selector ${JSON.stringify(field.selector)} is not valid CSS: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
     }
   }
-  return value;
-}
 
-function rawValue(field: FieldSpecObject, element: Element): string | boolean | null {
-  if (field.attr) return element.getAttribute(field.attr);
-  if (field.html) return element.innerHTML;
-
-  switch (field.prop) {
-    case 'href':
-      // The property resolves relative URLs against the document; the
-      // attribute does not, and a relative href is useless to a caller.
-      return readProp(element, 'href');
-    case 'src':
-      return readProp(element, 'src');
-    case 'value':
-      return readProp(element, 'value');
-    case 'checked': {
-      const checked = (element as unknown as { checked?: unknown }).checked;
-      return typeof checked === 'boolean' ? checked : false;
-    }
-    case 'textContent':
-    default:
-      return element.textContent ?? '';
+  function elementOrNone(element: Element | null): Element[] {
+    return element ? [element] : [];
   }
-}
 
-function readProp(element: Element, prop: string): string | null {
-  const value = (element as unknown as Record<string, unknown>)[prop];
-  if (typeof value === 'string') return value;
-  return element.getAttribute(prop);
-}
+  function isElement(value: unknown): value is Element {
+    return typeof value === 'object' && value !== null && 'tagName' in value;
+  }
 
-function collapse(value: string): string {
-  return value.replace(/\s+/g, ' ').trim();
-}
+  function readOne(field: FieldSpecObject, element: Element): ExtractedValue {
+    if (field.fields) return readFields(field.fields, element);
 
-function parseNumber(value: string): number | null {
-  // Strip the separators sites use inside numbers before parsing:
-  //   \u00A0 non-breaking space, plain space, comma. Written as escapes
-  // because a literal non-breaking space is invisible in a diff.
-  const match = value.replace(/[\u00A0\u0020,]/g, '').match(/-?\d+(\.\d+)?/);
-  if (!match) return null;
-  const parsed = Number(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
+    let value = rawValue(field, element);
+    if (value === null) return field.fallback ?? null;
+
+    if (typeof value === 'string') {
+      if (field.trim ?? !field.html) value = collapse(value);
+      if (field.regex) {
+        const match = new RegExp(field.regex).exec(value);
+        if (!match) return field.fallback ?? null;
+        value = match[field.regexGroup ?? 1] ?? match[0] ?? '';
+      }
+      if (field.number) {
+        const parsed = parseNumber(value);
+        return parsed ?? (field.fallback as number | null) ?? null;
+      }
+    }
+    return value;
+  }
+
+  function rawValue(field: FieldSpecObject, element: Element): string | boolean | null {
+    if (field.attr) return element.getAttribute(field.attr);
+    if (field.html) return element.innerHTML;
+
+    switch (field.prop) {
+      case 'href':
+        // The property resolves relative URLs against the document; the
+        // attribute does not, and a relative href is useless to a caller.
+        return readProp(element, 'href');
+      case 'src':
+        return readProp(element, 'src');
+      case 'value':
+        return readProp(element, 'value');
+      case 'checked': {
+        const checked = (element as unknown as { checked?: unknown }).checked;
+        return typeof checked === 'boolean' ? checked : false;
+      }
+      case 'textContent':
+      default:
+        return element.textContent ?? '';
+    }
+  }
+
+  function readProp(element: Element, prop: string): string | null {
+    const value = (element as unknown as Record<string, unknown>)[prop];
+    if (typeof value === 'string') return value;
+    return element.getAttribute(prop);
+  }
+
+  function collapse(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+  }
+
+  function parseNumber(value: string): number | null {
+    // Strip the separators sites use inside numbers before parsing:
+    //   \u00A0 non-breaking space, plain space, comma. Written as escapes
+    // because a literal non-breaking space is invisible in a diff.
+    const match = value.replace(/[\u00A0\u0020,]/g, '').match(/-?\d+(\.\d+)?/);
+    if (!match) return null;
+    const parsed = Number(match[0]);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
 }
 
 /**

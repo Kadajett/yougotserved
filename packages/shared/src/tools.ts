@@ -31,6 +31,7 @@ export const TOOL_NAMES = {
     CONSOLE: 'chrome_console',
     FILE_UPLOAD: 'chrome_upload_file',
     READ_PAGE: 'chrome_read_page',
+    EXTRACT: 'chrome_extract',
     COMPUTER: 'chrome_computer',
     HANDLE_DIALOG: 'chrome_handle_dialog',
     HANDLE_DOWNLOAD: 'chrome_handle_download',
@@ -155,6 +156,43 @@ export const TOOL_SCHEMAS: Tool[] = [
         },
       },
       required: [],
+    },
+  },
+  {
+    name: TOOL_NAMES.BROWSER.EXTRACT,
+    description:
+      'Pull structured data off the page with a declarative spec, instead of reading the whole ' +
+      'page and parsing it. Use this when you know which fields you want. A spec with "each" ' +
+      'returns one record per match; without it, one record. Costs a fraction of chrome_read_page.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        spec: {
+          type: 'object',
+          description:
+            'The extract spec. Example: {"each": "li.result", "limit": 10, "fields": ' +
+            '{"name": "span.title", "url": {"selector": "a", "prop": "href"}, ' +
+            '"followers": {"selector": ".count", "number": true}}}',
+          properties: {
+            each: {
+              type: 'string',
+              description: 'CSS selector for repeated records. Omit for a single record.',
+            },
+            limit: { type: 'number', description: 'Stop after this many records. Max 1000.' },
+            offset: { type: 'number', description: 'Skip this many records first.' },
+            fields: {
+              type: 'object',
+              description:
+                'Field name to selector, or to an object: {selector, attr, prop (href|src|' +
+                'value|checked|textContent), all, number, exists, regex, regexGroup, fallback, ' +
+                'html, trim, fields}. A bare string is the selector.',
+            },
+          },
+          required: ['fields'],
+        },
+        tabId: { type: 'number', description: 'Defaults to the active tab.' },
+      },
+      required: ['spec'],
     },
   },
   {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { p, paramsToJsonSchema, validateParams } from '../src/schema.js';
+import { p, paramsToJsonSchema, validateParams, validateSchemaArgs } from '../src/schema.js';
 
 describe('paramsToJsonSchema', () => {
   it('emits the compact schema an MCP listing carries', () => {
@@ -149,5 +149,33 @@ describe('validateParams', () => {
 
   it('rejects a non-object argument bag', () => {
     expect(validateParams(shape, 'query=rust').ok).toBe(false);
+  });
+});
+
+describe('validateSchemaArgs', () => {
+  const schema = {
+    type: 'object' as const,
+    properties: {
+      query: { type: 'string' as const },
+      limit: { type: 'integer' as const, default: 10 },
+      deep: { type: 'boolean' as const },
+    },
+    required: ['query'],
+  };
+
+  it('fills a default and coerces a string the agent sent for a number', () => {
+    const result = validateSchemaArgs(schema, { query: 'ada', deep: 'true' });
+    expect(result).toEqual({ ok: true, value: { query: 'ada', limit: 10, deep: true } });
+  });
+
+  it('names every problem at once, rather than the first', () => {
+    const result = validateSchemaArgs(schema, { limit: 'lots', extra: 1 });
+    expect(result.ok).toBe(false);
+    expect((result as { errors: string[] }).errors).toHaveLength(3);
+  });
+
+  it('rejects an unknown parameter, so a typo is not silently dropped', () => {
+    const result = validateSchemaArgs(schema, { query: 'ada', querry: 'ada' });
+    expect(result.ok).toBe(false);
   });
 });

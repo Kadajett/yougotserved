@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ExtractError, runExtractSpec, validateExtractSpec } from '../src/extract.js';
+import { runExtractSpec, validateExtractSpec } from '../src/extract.js';
 
 function mount(html: string): Element {
   document.body.innerHTML = html;
@@ -184,7 +184,14 @@ describe('runExtractSpec', () => {
 
   it('explains an invalid selector instead of throwing a DOM error', () => {
     const root = mount(RESULTS);
-    expect(() => runExtractSpec({ fields: { bad: '::::' } }, root)).toThrow(ExtractError);
+    // The name, not the class. The runner is injected into the page, where the
+    // class does not exist, so `instanceof` can never hold for a real failure.
+    expect(() => runExtractSpec({ fields: { bad: '::::' } }, root)).toThrow(/is not valid CSS/);
+    try {
+      runExtractSpec({ fields: { bad: '::::' } }, root);
+    } catch (error) {
+      expect((error as Error).name).toBe('ExtractError');
+    }
   });
 });
 
@@ -213,5 +220,22 @@ describe('validateExtractSpec', () => {
 
   it('rejects a nonsense limit', () => {
     expect(() => validateExtractSpec({ limit: 0, fields: { name: 'span' } })).toThrow(/limit/);
+  });
+});
+
+describe('runExtractSpec is self-contained', () => {
+  it('still works after a round trip through toString', () => {
+    // What `chrome.scripting.executeScript({ func })` does: it sends the source
+    // and drops the closure. If a helper ever moves back to module scope, this
+    // test fails here rather than in a page, where the error is hard to read.
+    const rebuilt = new Function(
+      `return (${runExtractSpec.toString()})`,
+    )() as typeof runExtractSpec;
+    const root = mount(RESULTS);
+
+    expect(rebuilt({ each: 'li', fields: { name: '.name' } }, root)).toEqual(
+      runExtractSpec({ each: 'li', fields: { name: '.name' } }, root),
+    );
+    expect(() => rebuilt({ fields: { bad: '::::' } }, root)).toThrow(/is not valid CSS/);
   });
 });

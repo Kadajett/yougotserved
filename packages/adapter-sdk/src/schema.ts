@@ -283,6 +283,47 @@ export function validateParams<S extends ParamShape>(
   return { ok: true, value: out as InferParams<S> };
 }
 
+/**
+ * The same checks, driven by a stored JSON schema rather than a `p` shape.
+ *
+ * A published pack carries `inputSchema`, not the builder that produced it, so
+ * the host has nothing else to validate against. Arguments reaching this come
+ * from an agent over the wire, so they are checked before any step runs.
+ */
+export function validateSchemaArgs(
+  schema: JsonSchemaNode,
+  input: unknown,
+): ValidationResult<Record<string, unknown>> {
+  const errors: string[] = [];
+  if (input !== undefined && input !== null && typeof input !== 'object') {
+    return { ok: false, errors: ['Arguments must be an object.'] };
+  }
+  const args = (input ?? {}) as Record<string, unknown>;
+  const properties = schema.properties ?? {};
+  const required = new Set(schema.required ?? []);
+  const out: Record<string, unknown> = {};
+
+  for (const [name, node] of Object.entries(properties)) {
+    const raw = args[name];
+
+    if (raw === undefined || raw === null) {
+      if (node.default !== undefined) out[name] = structuredCloneish(node.default);
+      else if (required.has(name)) errors.push(`Missing required parameter "${name}".`);
+      continue;
+    }
+
+    const checked = checkValue(name, node, raw, errors);
+    if (checked !== undefined) out[name] = checked;
+  }
+
+  for (const key of Object.keys(args)) {
+    if (!(key in properties)) errors.push(`Unknown parameter "${key}".`);
+  }
+
+  if (errors.length) return { ok: false, errors };
+  return { ok: true, value: out };
+}
+
 function checkValue(
   path: string,
   node: JsonSchemaNode,

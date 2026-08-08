@@ -49,6 +49,7 @@ export {
   ParamError,
   paramsToJsonSchema,
   validateParams,
+  validateSchemaArgs,
   type FileParamValue,
   type InferParams,
   type JsonSchemaNode,

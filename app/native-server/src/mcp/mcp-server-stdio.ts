@@ -11,6 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { TOOL_SCHEMAS } from 'chrome-mcp-shared';
 import { REGISTRY_TOOLS, handleRegistryTool, isRegistryTool } from '../adapters/registry-tools';
+import { handlePackTool, isPackTool, packTools } from '../adapters/host';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import * as fs from 'fs';
@@ -78,8 +79,10 @@ export const setupTools = (server: Server) => {
   // List tools handler
   // Registry tools are served from this process. They reach the registry over
   // HTTP and never touch a page, so they work with no extension connected.
+  // Installed adapter packs list here too. They are read from disk on each
+  // listing, so installing one and asking again is enough: no restart.
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: [...TOOL_SCHEMAS, ...REGISTRY_TOOLS],
+    tools: [...TOOL_SCHEMAS, ...REGISTRY_TOOLS, ...(await packTools())],
   }));
 
   // Call tool handler
@@ -104,6 +107,19 @@ const handleToolCall = async (name: string, args: any): Promise<CallToolResult> 
     const client = await ensureMcpClient();
     if (!client) {
       throw new Error('Failed to connect to MCP server');
+    }
+
+    // A pack tool is many browser calls, so it runs here and reaches the
+    // extension through the same client, one step at a time.
+    if (await isPackTool(name)) {
+      return await handlePackTool(
+        name,
+        args || {},
+        (tool, toolArgs) =>
+          client.callTool({ name: tool, arguments: toolArgs }, undefined, {
+            timeout: 60_000,
+          }) as Promise<CallToolResult>,
+      );
     }
     // Use a sane default of 2 minutes; the previous value mistakenly used 2*6*1000 (12s)
     const DEFAULT_CALL_TIMEOUT_MS = 2 * 60 * 1000;

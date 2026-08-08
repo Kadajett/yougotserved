@@ -41,7 +41,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['app/**/*.{js,jsx,ts,tsx}', 'packages/**/*.{js,jsx,ts,tsx}'],
+    files: ['app/**/*.{js,jsx,ts,tsx}', 'packages/**/*.{js,jsx,ts,tsx}', 'scripts/**/*.{js,mjs}'],
     ignores: ['**/workers/**'], // Additional ignores for this specific config
     languageOptions: {
       ecmaVersion: 2021,

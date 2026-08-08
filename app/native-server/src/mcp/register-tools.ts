@@ -6,6 +6,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import nativeMessagingHostInstance from '../native-messaging-host';
 import { REGISTRY_TOOLS, handleRegistryTool, isRegistryTool } from '../adapters/registry-tools';
+import { handlePackTool, isPackTool, packTools } from '../adapters/host';
 import { NativeMessageType, TOOL_SCHEMAS } from 'chrome-mcp-shared';
 import type { Tool } from '@modelcontextprotocol/sdk/types.js';
 
@@ -73,7 +74,7 @@ export const setupTools = (server: Server) => {
     const dynamicTools = await listDynamicFlowTools();
     // Registry tools run in this process, not the browser, so they are listed
     // whether or not the extension is connected.
-    return { tools: [...TOOL_SCHEMAS, ...REGISTRY_TOOLS, ...dynamicTools] };
+    return { tools: [...TOOL_SCHEMAS, ...REGISTRY_TOOLS, ...(await packTools()), ...dynamicTools] };
   });
 
   // Call tool handler
@@ -125,6 +126,23 @@ const handleToolCall = async (name: string, args: any): Promise<CallToolResult> 
         };
       }
     }
+    // A pack tool is a step list, so it runs here and reaches the extension one
+    // browser call at a time through the same channel as everything else.
+    if (await isPackTool(name)) {
+      return await handlePackTool(name, args || {}, async (tool, toolArgs) => {
+        const reply = await nativeMessagingHostInstance.sendRequestToExtensionAndWait(
+          { name: tool, args: toolArgs },
+          NativeMessageType.CALL_TOOL,
+          60000,
+        );
+        if (reply.status === 'success') return reply.data as CallToolResult;
+        return {
+          content: [{ type: 'text', text: String(reply.error) }],
+          isError: true,
+        };
+      });
+    }
+
     // Forward to the extension and wait for the reply.
     const response = await nativeMessagingHostInstance.sendRequestToExtensionAndWait(
       {
