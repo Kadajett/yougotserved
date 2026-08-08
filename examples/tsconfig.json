@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "baseUrl": "..",
+    // The SDK is not installed into node_modules yet (it is a new workspace
+    // member and not in the lockfile), so resolve it straight from source.
+    "paths": {
+      "@yougotserved/adapter-sdk": ["packages/adapter-sdk/src/index.ts"]
+    }
+  },
+  "include": ["./*.adapter.ts"]
+}

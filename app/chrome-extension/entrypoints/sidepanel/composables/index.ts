@@ -9,7 +9,6 @@ export { useAgentSessions } from './useAgentSessions';
 export { useAttachments, type AttachmentWithPreview } from './useAttachments';
 export { useAgentTheme, preloadAgentTheme, THEME_LABELS } from './useAgentTheme';
 export { useAgentThreads, AGENT_SERVER_PORT_KEY } from './useAgentThreads';
-export { useWebEditorTxState, WEB_EDITOR_TX_STATE_INJECTION_KEY } from './useWebEditorTxState';
 export { useAgentChatViewRoute } from './useAgentChatViewRoute';
 
 export type { UseAgentServerOptions } from './useAgentServer';
@@ -25,10 +24,7 @@ export type {
   ToolSeverity,
   AgentThreadState,
   UseAgentThreadsOptions,
-  ThreadHeader,
-  WebEditorApplyMeta,
 } from './useAgentThreads';
-export type { UseWebEditorTxStateOptions, WebEditorTxStateReturn } from './useWebEditorTxState';
 export type {
   AgentChatView,
   AgentChatRouteState,

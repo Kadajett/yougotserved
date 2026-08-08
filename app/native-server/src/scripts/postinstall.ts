@@ -74,16 +74,16 @@ function isRunningElevated(): boolean {
 }
 
 /**
- * 确保执行权限（无论是否为全局安装）
+ * Ensure executable permissions（无论是否为全局安装）
  */
 async function ensureExecutionPermissions(): Promise<void> {
   if (process.platform === 'win32') {
-    // Windows 平台处理
+    // Windows platform handling
     await ensureWindowsFilePermissions();
     return;
   }
 
-  // Unix/Linux 平台处理
+  // Unix/Linux platform handling
   const filesToCheck = [
     path.join(__dirname, '..', 'index.js'),
     path.join(__dirname, '..', 'run_host.sh'),
@@ -112,7 +112,7 @@ async function ensureExecutionPermissions(): Promise<void> {
 }
 
 /**
- * Windows 平台文件权限处理
+ * Windows platform file permission handling
  */
 async function ensureWindowsFilePermissions(): Promise<void> {
   const filesToCheck = [
@@ -124,18 +124,18 @@ async function ensureWindowsFilePermissions(): Promise<void> {
   for (const filePath of filesToCheck) {
     if (fs.existsSync(filePath)) {
       try {
-        // 检查文件是否为只读，如果是则移除只读属性
+        // Clear the read-only attribute if set
         const stats = fs.statSync(filePath);
         if (!(stats.mode & parseInt('200', 8))) {
-          // 检查写权限
-          // 尝试移除只读属性
+          // check write permission
+          // try to clear read-only
           fs.chmodSync(filePath, stats.mode | parseInt('200', 8));
           console.log(
             colorText(`✓ Removed read-only attribute from ${path.basename(filePath)}`, 'green'),
           );
         }
 
-        // 验证文件可读性
+        // verify readability
         fs.accessSync(filePath, fs.constants.R_OK);
         console.log(
           colorText(`✓ Verified file accessibility for ${path.basename(filePath)}`, 'green'),
@@ -277,7 +277,7 @@ function printManualInstructions(): void {
 }
 
 /**
- * 主函数
+ * Main
  */
 async function main(): Promise<void> {
   console.log(colorText(`Installing ${COMMAND_NAME}...`, 'green'));

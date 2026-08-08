@@ -3,12 +3,7 @@
     <!-- User Query Header -->
     <div class="mb-4">
       <div class="flex justify-between items-start">
-        <!-- Special rendering for web editor apply messages -->
-        <ApplyMessageChip v-if="thread.header?.webEditorApply" :header="thread.header" />
-
-        <!-- Default title rendering for regular messages -->
         <h2
-          v-else
           class="text-lg font-medium leading-snug"
           :style="{
             color: 'var(--ac-text)',
@@ -151,7 +146,6 @@ import type { AttachmentMetadata } from 'chrome-mcp-shared';
 import type { AgentThread } from '../../composables/useAgentThreads';
 import { AGENT_SERVER_PORT_KEY } from '../../composables';
 import AgentTimeline from './AgentTimeline.vue';
-import ApplyMessageChip from './ApplyMessageChip.vue';
 
 const props = defineProps<{
   thread: AgentThread;

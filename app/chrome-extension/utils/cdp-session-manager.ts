@@ -91,6 +91,52 @@ class CDPSessionManager {
   }
 
   /**
+   * Subscribe to a CDP event on a tab. Returns an unsubscribe function.
+   *
+   * `chrome.debugger.onEvent` is global across every attached tab, so the
+   * filtering by tabId and method belongs here rather than in each caller.
+   */
+  onEvent<T = any>(tabId: number, method: string, handler: (params: T) => void): () => void {
+    const listener = (source: chrome.debugger.Debuggee, eventMethod: string, params?: object) => {
+      if (source.tabId !== tabId || eventMethod !== method) return;
+      handler(params as T);
+    };
+    chrome.debugger.onEvent.addListener(listener);
+    return () => chrome.debugger.onEvent.removeListener(listener);
+  }
+
+  /**
+   * Runs `trigger` and resolves with the first matching event.
+   *
+   * The listener is attached *before* the trigger runs. Events such as
+   * `Page.fileChooserOpened` fire during the click that causes them, so
+   * subscribing afterwards loses the race and the call hangs until timeout.
+   */
+  async waitForEvent<T = any>(
+    tabId: number,
+    method: string,
+    trigger: () => Promise<void>,
+    timeoutMs = 10000,
+  ): Promise<T> {
+    let unsubscribe: (() => void) | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    try {
+      return await new Promise<T>((resolve, reject) => {
+        unsubscribe = this.onEvent<T>(tabId, method, resolve);
+        timer = setTimeout(
+          () => reject(new Error(`Timed out after ${timeoutMs}ms waiting for ${method}`)),
+          timeoutMs,
+        );
+        trigger().catch(reject);
+      });
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+      unsubscribe?.();
+    }
+  }
+
+  /**
    * Send a CDP command. Requires that this manager has attached to the tab.
    * If not attached by us, will attempt a one-shot attach around the call.
    */

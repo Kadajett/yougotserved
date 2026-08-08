@@ -49,9 +49,6 @@
 
         <!-- Composer -->
         <template #composer>
-          <!-- Web Editor Changes Chips -->
-          <WebEditorChanges />
-
           <AgentComposer
             :model-value="chat.input.value"
             :attachments="attachments.attachments.value"
@@ -178,11 +175,9 @@ import {
   useAttachments,
   useAgentTheme,
   useAgentThreads,
-  useWebEditorTxState,
   useAgentChatViewRoute,
   useOpenProjectPreference,
   useAgentInputPreferences,
-  WEB_EDITOR_TX_STATE_INJECTION_KEY,
   AGENT_SERVER_PORT_KEY,
   type AgentThemeId,
 } from '../composables';
@@ -193,7 +188,6 @@ import {
   AgentChatShell,
   AgentTopBar,
   AgentComposer,
-  WebEditorChanges,
   AgentConversation,
   AgentProjectMenu,
   AgentSessionMenu,
@@ -330,11 +324,6 @@ const openProjectPreference = useOpenProjectPreference({
   getServerPort: () => server.serverPort.value,
 });
 const inputPreferences = useAgentInputPreferences();
-
-// Initialize Web Editor TX state at root level and provide to children
-// This prevents duplicate listener registration in child components
-const webEditorTxState = useWebEditorTxState();
-provide(WEB_EDITOR_TX_STATE_INJECTION_KEY, webEditorTxState);
 
 // Provide server port for child components to build attachment URLs
 provide(AGENT_SERVER_PORT_KEY, server.serverPort);
@@ -1057,70 +1046,6 @@ function handleBackToSessions(): void {
 // Web Editor Selection Context
 // =============================================================================
 
-/**
- * Build instruction with web editor selection context prepended.
- * This provides AI with element context when user asks to modify selected element.
- *
- * Format:
- * ```
- * [WebEditorSelectionContext]
- * pageUrl: <pageUrl>
- * tagName: <tagName>
- * label: <label>
- * selectors: [<up to 3>]
- * fingerprint: <fingerprint>
- *
- * [UserRequest]
- * <user original input>
- * ```
- *
- * @param userInput - The user's original input text
- * @returns Instruction with context prepended, or original input if no selection
- */
-function buildInstructionWithSelectionContext(userInput: string): string {
-  const selection = webEditorTxState.selectedElement.value;
-  const txState = webEditorTxState.txState.value;
-  const selectionPageUrl = webEditorTxState.selectionPageUrl.value;
-
-  // No selection = return original input
-  if (!selection) {
-    return userInput;
-  }
-
-  // Build context lines
-  const contextLines: string[] = ['[WebEditorSelectionContext]'];
-
-  // Page URL - prefer selection's pageUrl (more recent), fall back to txState
-  const pageUrl = selectionPageUrl || txState?.pageUrl;
-  if (pageUrl) {
-    contextLines.push(`pageUrl: ${pageUrl}`);
-  }
-
-  // Element key for stable identification
-  if (selection.elementKey) {
-    contextLines.push(`elementKey: ${selection.elementKey}`);
-  }
-
-  // Element info
-  contextLines.push(`tagName: ${selection.tagName || 'unknown'}`);
-  contextLines.push(`label: ${selection.label || selection.fullLabel || 'unknown'}`);
-
-  // Selectors (up to 3)
-  const selectors = selection.locator?.selectors ?? [];
-  const topSelectors = selectors.slice(0, 3);
-  if (topSelectors.length > 0) {
-    contextLines.push(`selectors: [${topSelectors.map((s) => `"${s}"`).join(', ')}]`);
-  }
-
-  // Fingerprint for similarity matching
-  if (selection.locator?.fingerprint) {
-    contextLines.push(`fingerprint: ${selection.locator.fingerprint}`);
-  }
-
-  // Combine context with user request
-  return `${contextLines.join('\n')}\n\n[UserRequest]\n${userInput}`;
-}
-
 // Attachment handlers
 function handleAttachmentAdd(): void {
   // Create and click a hidden file input
@@ -1144,138 +1069,21 @@ async function handleSend(): Promise<void> {
   const messageText = chat.input.value.trim();
   if (!messageText) return;
 
-  // Check if user has selected an element in web editor
-  const selection = webEditorTxState.selectedElement.value;
-  const txState = webEditorTxState.txState.value;
-  const selectionPageUrl = webEditorTxState.selectionPageUrl.value;
-
-  // Capture selection info before sending (for clear after success)
-  const selectionTabId = webEditorTxState.tabId.value;
-  const selectionElementKey = selection?.elementKey ?? null;
-
-  // When a web editor element is selected, store structured metadata on the user message
-  // so the thread header can render as a chip (same style as "Web editor apply")
-  const selectionClientMeta = selection
-    ? {
-        kind: 'web_editor_apply_single' as const,
-        pageUrl: selectionPageUrl || txState?.pageUrl || 'unknown',
-        elementCount: 1,
-        elementLabels: [
-          selection.label || selection.fullLabel || selection.tagName || 'selected element',
-        ],
-      }
-    : undefined;
-
-  // Build instruction with web editor selection context (if any)
-  // The UI will show the original messageText, but the actual instruction
-  // sent to the server will include element context for AI to understand
-  const instructionWithContext = buildInstructionWithSelectionContext(messageText);
-
   // Use getAttachments() to strip previewUrl and avoid payload bloat
   chat.attachments.value = attachments.getAttachments() ?? [];
 
-  // Session-level config is now used by backend; no need to pass cliPreference/model
-  // For selection context messages, use the user's input as displayText
-  // so the chip shows meaningful content instead of a generic label
   await chat.send({
     projectId: projects.selectedProjectId.value || undefined,
     dbSessionId,
-    // Pass the context-enriched instruction to be sent to server
-    instruction: instructionWithContext,
-    // Attach metadata only when selection context exists
-    // Use user's original message as displayText for better UX
-    displayText: selection ? messageText : undefined,
-    clientMeta: selectionClientMeta,
+    instruction: messageText,
   });
-
-  // Clear web editor selection after successful send
-  // This "consumes" the selection context so it won't be re-injected in next message
-  if (selectionElementKey && selectionTabId) {
-    // Check if user has selected a DIFFERENT element during the loading period
-    // Compare both elementKey AND tabId to handle cross-tab scenarios
-    // (elementKey like "div#app" is not unique across tabs/pages)
-    const currentElementKey = webEditorTxState.selectedElement.value?.elementKey ?? null;
-    const currentTabId = webEditorTxState.tabId.value;
-
-    const isSameSelection =
-      currentElementKey === selectionElementKey && currentTabId === selectionTabId;
-
-    if (!isSameSelection && currentElementKey !== null) {
-      // User selected a new element (or switched tab) during send - preserve it, don't clear
-    } else {
-      // Same element or already deselected - proceed with clear
-      // Try to clear via message (web-editor may be open)
-      chrome.runtime
-        .sendMessage({
-          type: BACKGROUND_MESSAGE_TYPES.WEB_EDITOR_CLEAR_SELECTION,
-          payload: { tabId: selectionTabId },
-        })
-        .then((response: { success: boolean } | undefined) => {
-          // If web-editor didn't respond (closed/not active), clear local state
-          // Use captured selectionTabId/selectionElementKey to avoid clearing new selection
-          if (!response?.success) {
-            clearLocalSelectionState(selectionTabId, selectionElementKey);
-          }
-          // If success, web-editor will broadcast null selection which will clear our state
-        })
-        .catch(() => {
-          // Message failed - clear sidepanel local state directly
-          clearLocalSelectionState(selectionTabId, selectionElementKey);
-        });
-    }
-  }
 
   // Update session preview with first user message (if not already set)
   // Note: Use original messageText, not the context-enriched version
   // Include previewMeta for special chip rendering in session list
-  sessions.updateSessionPreview(
-    dbSessionId,
-    messageText,
-    selectionClientMeta
-      ? {
-          displayText: messageText,
-          clientMeta: selectionClientMeta,
-          fullContent: instructionWithContext,
-        }
-      : undefined,
-  );
+  sessions.updateSessionPreview(dbSessionId, messageText);
 
   attachments.clearAttachments();
-}
-
-/**
- * Clear sidepanel local selection state.
- * Used when web-editor is closed or unreachable.
- *
- * @param expectedTabId - The tab ID that was selected at send time
- * @param expectedElementKey - The element key that was selected at send time
- */
-function clearLocalSelectionState(expectedTabId: number, expectedElementKey: string): void {
-  // Double-check we're still on the same selection to avoid clearing new selection
-  const currentTabId = webEditorTxState.tabId.value;
-  const currentElementKey = webEditorTxState.selectedElement.value?.elementKey ?? null;
-
-  // Only clear if still pointing to the same selection (or already cleared)
-  const shouldClear =
-    currentElementKey === null ||
-    (currentTabId === expectedTabId && currentElementKey === expectedElementKey);
-
-  if (!shouldClear) {
-    // User switched to a different selection - don't clear
-    return;
-  }
-
-  // Clear the reactive state
-  webEditorTxState.selectedElement.value = null;
-  webEditorTxState.selectionPageUrl.value = null;
-
-  // Clear session storage to prevent "revival" on refresh/tab switch
-  if (expectedTabId) {
-    const storageKey = `web-editor-v2-selection-${expectedTabId}`;
-    chrome.storage.session.remove(storageKey).catch(() => {
-      // Ignore storage errors
-    });
-  }
 }
 
 // Initialize

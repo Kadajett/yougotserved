@@ -4,10 +4,7 @@
  */
 
 import { ref, onMounted, onUnmounted, type Ref } from 'vue';
-import {
-  installFloatingDrag,
-  type FloatingPosition,
-} from '@/entrypoints/web-editor-v2/ui/floating-drag';
+import { installFloatingDrag, type FloatingPosition } from '@/shared/utils/floating-drag';
 
 const STORAGE_KEY = 'sidepanel_navigator_position';
 

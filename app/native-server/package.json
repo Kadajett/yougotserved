@@ -17,7 +17,7 @@
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
     "register:dev": "node dist/scripts/register-dev.js",
-    "postinstall": "node dist/scripts/postinstall.js"
+    "postinstall": "node -e \"require('fs').existsSync('dist/scripts/postinstall.js') ? require('child_process').execFileSync(process.execPath,['dist/scripts/postinstall.js'],{stdio:'inherit'}) : console.log('[mcp-chrome-bridge] skipping postinstall: dist not built yet (source checkout)')\""
   },
   "files": [
     "dist",

@@ -3,136 +3,102 @@ import { BaseBrowserToolExecutor } from '../base-browser';
 import { TOOL_NAMES } from 'chrome-mcp-shared';
 import { cdpSessionManager } from '@/utils/cdp-session-manager';
 
-interface FileUploadToolParams {
-  selector: string; // CSS selector for the file input element
-  filePath?: string; // Local file path
-  fileUrl?: string; // URL to download file from
-  base64Data?: string; // Base64 encoded file data
-  fileName?: string; // Optional filename when using base64 or URL
-  multiple?: boolean; // Whether to allow multiple files
-  tabId?: number; // Target existing tab id
-  windowId?: number; // When no tabId, pick active tab from this window
+/** One file to attach. Exactly one source is used, in path/url/base64 order. */
+interface FileSource {
+  filePath?: string;
+  fileUrl?: string;
+  base64Data?: string;
+  fileName?: string;
 }
 
 /**
- * Tool for uploading files to web forms using Chrome DevTools Protocol
- * Similar to Playwright's setInputFiles implementation
+ * How the page takes the file.
+ *
+ * - `input`  set files on an `<input type="file">` that is already in the DOM.
+ *            Works even when the input is hidden behind a styled button, which
+ *            is how most sites build an "Attach" control.
+ * - `picker` click something that opens the OS file dialog, and answer the
+ *            dialog. For sites that create the input on click, or use the File
+ *            System Access API and have no input at all.
+ */
+type UploadMode = 'input' | 'picker';
+
+interface FileUploadToolParams {
+  /** CSS selector for the file input. Required for mode "input". */
+  selector?: string;
+  /** CSS selector for the control that opens the picker. Required for mode "picker". */
+  triggerSelector?: string;
+  mode?: UploadMode;
+
+  /** Preferred form: one entry per file. */
+  files?: FileSource[];
+
+  /** Single-file form, kept so existing callers keep working. */
+  filePath?: string;
+  fileUrl?: string;
+  base64Data?: string;
+  fileName?: string;
+
+  tabId?: number;
+  windowId?: number;
+  timeoutMs?: number;
+}
+
+const DEFAULT_PICKER_TIMEOUT_MS = 10000;
+
+/**
+ * Uploads files through the Chrome DevTools Protocol, the same mechanism
+ * Playwright's `setInputFiles` uses.
+ *
+ * CDP reads the file itself, so bytes never pass through the extension for a
+ * local path. A URL or inline base64 is materialised into the native host's
+ * temp directory first and the resulting path is handed to CDP.
  */
 class FileUploadTool extends BaseBrowserToolExecutor {
   name = TOOL_NAMES.BROWSER.FILE_UPLOAD;
-  constructor() {
-    super();
-  }
 
-  /**
-   * Execute file upload operation using Chrome DevTools Protocol
-   */
   async execute(args: FileUploadToolParams): Promise<ToolResult> {
-    const { selector, filePath, fileUrl, base64Data, fileName, multiple = false } = args;
+    const mode: UploadMode = args.mode ?? 'input';
+    const sources = collectSources(args);
 
-    console.log(`Starting file upload operation with options:`, args);
-
-    // Validate input
-    if (!selector) {
-      return createErrorResponse('Selector is required for file upload');
+    if (sources.length === 0) {
+      return createErrorResponse('Provide files[], or one of filePath, fileUrl, or base64Data');
     }
-
-    if (!filePath && !fileUrl && !base64Data) {
-      return createErrorResponse('One of filePath, fileUrl, or base64Data must be provided');
+    if (mode === 'input' && !args.selector) {
+      return createErrorResponse('selector is required for mode "input"');
+    }
+    if (mode === 'picker' && !args.triggerSelector) {
+      return createErrorResponse('triggerSelector is required for mode "picker"');
     }
 
     try {
-      // Resolve tab
       const explicit = await this.tryGetTab(args.tabId);
       const tab = explicit || (await this.getActiveTabOrThrowInWindow(args.windowId));
       if (!tab.id) return createErrorResponse('No active tab found');
       const tabId = tab.id;
 
-      // Prepare file paths
-      let files: string[] = [];
-
-      if (filePath) {
-        // Direct file path provided
-        files = [filePath];
-      } else if (fileUrl || base64Data) {
-        // For URL or base64, we need to use the native messaging host
-        // to download or save the file temporarily
-        const tempFilePath = await this.prepareFileFromRemote({
-          fileUrl,
-          base64Data,
-          fileName: fileName || 'uploaded-file',
-        });
-        if (!tempFilePath) {
-          return createErrorResponse('Failed to prepare file for upload');
+      // Resolve every source to a local path before touching the page, so a
+      // failed download does not leave a half-filled form behind.
+      const files: string[] = [];
+      for (const source of sources) {
+        const path = await this.resolveToLocalPath(source);
+        if (!path) {
+          return createErrorResponse(
+            `Failed to prepare ${source.fileName || source.fileUrl || 'file'} for upload`,
+          );
         }
-        files = [tempFilePath];
+        files.push(path);
       }
 
-      // Use shared CDP session manager to attach/do work/detach safely
       await cdpSessionManager.withSession(tabId, 'file-upload', async () => {
-        // Enable necessary CDP domains
         await cdpSessionManager.sendCommand(tabId, 'DOM.enable', {});
         await cdpSessionManager.sendCommand(tabId, 'Runtime.enable', {});
 
-        // Get the document
-        const { root } = (await cdpSessionManager.sendCommand(tabId, 'DOM.getDocument', {
-          depth: -1,
-          pierce: true,
-        })) as { root: { nodeId: number } };
-
-        // Find the file input element using the selector
-        const { nodeId } = (await cdpSessionManager.sendCommand(tabId, 'DOM.querySelector', {
-          nodeId: root.nodeId,
-          selector: selector,
-        })) as { nodeId: number };
-
-        if (!nodeId || nodeId === 0) {
-          throw new Error(`Element with selector "${selector}" not found`);
+        if (mode === 'picker') {
+          await this.uploadViaPicker(tabId, args.triggerSelector!, files, args.timeoutMs);
+        } else {
+          await this.uploadToInput(tabId, args.selector!, files);
         }
-
-        // Verify it's actually a file input
-        const { node } = (await cdpSessionManager.sendCommand(tabId, 'DOM.describeNode', {
-          nodeId,
-        })) as { node: { nodeName: string; attributes?: string[] } };
-
-        if (node.nodeName !== 'INPUT') {
-          throw new Error(`Element with selector "${selector}" is not an input element`);
-        }
-
-        // Check if it's a file input by looking for type="file" in attributes
-        const attributes = node.attributes || [];
-        let isFileInput = false;
-        for (let i = 0; i < attributes.length; i += 2) {
-          if (attributes[i] === 'type' && attributes[i + 1] === 'file') {
-            isFileInput = true;
-            break;
-          }
-        }
-
-        if (!isFileInput) {
-          throw new Error(`Element with selector "${selector}" is not a file input (type="file")`);
-        }
-
-        // Set the files on the input element
-        await cdpSessionManager.sendCommand(tabId, 'DOM.setFileInputFiles', {
-          nodeId,
-          files,
-        });
-
-        // Trigger change event to ensure the page reacts to the file upload
-        await cdpSessionManager.sendCommand(tabId, 'Runtime.evaluate', {
-          expression: `
-            (function() {
-              const element = document.querySelector('${selector.replace(/'/g, "\\'")}');
-              if (element) {
-                const event = new Event('change', { bubbles: true });
-                element.dispatchEvent(event);
-                return true;
-              }
-              return false;
-            })()
-          `,
-        });
       });
 
       return {
@@ -141,10 +107,11 @@ class FileUploadTool extends BaseBrowserToolExecutor {
             type: 'text',
             text: JSON.stringify({
               success: true,
-              message: 'File(s) uploaded successfully',
-              files: files,
-              selector: selector,
+              message: `Attached ${files.length} file${files.length === 1 ? '' : 's'}`,
+              mode,
+              files,
               fileCount: files.length,
+              selector: mode === 'picker' ? args.triggerSelector : args.selector,
             }),
           },
         ],
@@ -152,19 +119,164 @@ class FileUploadTool extends BaseBrowserToolExecutor {
       };
     } catch (error) {
       console.error('Error in file upload operation:', error);
-
-      // Session manager handles detach; nothing extra needed here
-
       return createErrorResponse(
         `Error uploading file: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }
 
-  // All debugger attach/detach is centrally managed by cdpSessionManager
+  /** Sets files on an input that is already in the DOM. */
+  private async uploadToInput(tabId: number, selector: string, files: string[]): Promise<void> {
+    const { root } = (await cdpSessionManager.sendCommand(tabId, 'DOM.getDocument', {
+      depth: -1,
+      pierce: true,
+    })) as { root: { nodeId: number } };
+
+    const { nodeId } = (await cdpSessionManager.sendCommand(tabId, 'DOM.querySelector', {
+      nodeId: root.nodeId,
+      selector,
+    })) as { nodeId: number };
+
+    if (!nodeId) throw new Error(`Element with selector "${selector}" not found`);
+
+    await this.assertFileInput(tabId, { nodeId }, selector);
+    await cdpSessionManager.sendCommand(tabId, 'DOM.setFileInputFiles', { nodeId, files });
+    await this.dispatchChange(tabId, selector);
+  }
 
   /**
-   * Prepare file from URL or base64 data using native messaging host
+   * Clicks a control and answers the file chooser it opens.
+   *
+   * `Page.setInterceptFileChooser` stops the native dialog from appearing at
+   * all — without it the OS picker opens on the user's desktop and blocks
+   * until someone dismisses it by hand.
+   */
+  private async uploadViaPicker(
+    tabId: number,
+    triggerSelector: string,
+    files: string[],
+    timeoutMs = DEFAULT_PICKER_TIMEOUT_MS,
+  ): Promise<void> {
+    await cdpSessionManager.sendCommand(tabId, 'Page.enable', {});
+    await cdpSessionManager.sendCommand(tabId, 'Page.setInterceptFileChooser', { enabled: true });
+
+    try {
+      const event = await cdpSessionManager.waitForEvent<{
+        backendNodeId: number;
+        mode: 'selectSingle' | 'selectMultiple';
+      }>(
+        tabId,
+        'Page.fileChooserOpened',
+        async () => {
+          const clicked = await this.evaluate<boolean>(
+            tabId,
+            `(() => {
+               const element = document.querySelector(${JSON.stringify(triggerSelector)});
+               if (!element) return false;
+               element.scrollIntoView({ block: 'center' });
+               element.click();
+               return true;
+             })()`,
+          );
+          if (!clicked) throw new Error(`Trigger "${triggerSelector}" not found`);
+        },
+        timeoutMs,
+      );
+
+      if (event.mode === 'selectSingle' && files.length > 1) {
+        throw new Error(
+          `The page's file chooser accepts one file, but ${files.length} were provided`,
+        );
+      }
+
+      await cdpSessionManager.sendCommand(tabId, 'DOM.setFileInputFiles', {
+        backendNodeId: event.backendNodeId,
+        files,
+      });
+    } finally {
+      // Leaving interception on would swallow the user's own file dialogs in
+      // this tab for as long as the debugger stays attached.
+      await cdpSessionManager
+        .sendCommand(tabId, 'Page.setInterceptFileChooser', { enabled: false })
+        .catch(() => {});
+    }
+  }
+
+  private async assertFileInput(
+    tabId: number,
+    target: { nodeId: number },
+    selector: string,
+  ): Promise<void> {
+    const { node } = (await cdpSessionManager.sendCommand(tabId, 'DOM.describeNode', target)) as {
+      node: { nodeName: string; attributes?: string[] };
+    };
+
+    if (node.nodeName !== 'INPUT') {
+      throw new Error(`Element with selector "${selector}" is not an input element`);
+    }
+
+    const attributes = node.attributes || [];
+    for (let i = 0; i < attributes.length; i += 2) {
+      if (attributes[i] === 'type' && attributes[i + 1] === 'file') return;
+    }
+    throw new Error(`Element with selector "${selector}" is not a file input (type="file")`);
+  }
+
+  /**
+   * Fires `input` then `change`.
+   *
+   * React and Vue forms hang their validation off these, and an input whose
+   * files change without them looks empty to the page. The selector goes
+   * through JSON.stringify rather than string concatenation: a selector
+   * containing a quote used to break the expression, and anything a caller
+   * controls that lands in an eval is worth escaping properly.
+   */
+  private async dispatchChange(tabId: number, selector: string): Promise<void> {
+    await this.evaluate(
+      tabId,
+      `(() => {
+         const element = document.querySelector(${JSON.stringify(selector)});
+         if (!element) return false;
+         element.dispatchEvent(new Event('input', { bubbles: true }));
+         element.dispatchEvent(new Event('change', { bubbles: true }));
+         return true;
+       })()`,
+    );
+  }
+
+  private async evaluate<T = unknown>(tabId: number, expression: string): Promise<T> {
+    const response = (await cdpSessionManager.sendCommand(tabId, 'Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+    })) as {
+      result?: { value?: T };
+      exceptionDetails?: { text?: string; exception?: { description?: string } };
+    };
+
+    if (response.exceptionDetails) {
+      throw new Error(
+        response.exceptionDetails.exception?.description ||
+          response.exceptionDetails.text ||
+          'Evaluation failed',
+      );
+    }
+    return response.result?.value as T;
+  }
+
+  /** A local path is used as-is; a URL or base64 becomes a file in the host's temp dir. */
+  private async resolveToLocalPath(source: FileSource): Promise<string | null> {
+    if (source.filePath) return source.filePath;
+    if (!source.fileUrl && !source.base64Data) return null;
+    return this.prepareFileFromRemote({
+      fileUrl: source.fileUrl,
+      base64Data: source.base64Data,
+      fileName: source.fileName || 'uploaded-file',
+    });
+  }
+
+  /**
+   * Asks the native host to materialise a URL or base64 payload on disk.
    */
   private async prepareFileFromRemote(options: {
     fileUrl?: string;
@@ -174,49 +286,43 @@ class FileUploadTool extends BaseBrowserToolExecutor {
     const { fileUrl, base64Data, fileName } = options;
 
     return new Promise((resolve) => {
-      const requestId = `file-upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const requestId = `file-upload-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       const timeout = setTimeout(() => {
         console.error('File preparation request timed out');
+        chrome.runtime.onMessage.removeListener(handleMessage);
         resolve(null);
-      }, 30000); // 30 second timeout
+      }, 30000);
 
-      // Create listener for the response
       const handleMessage = (message: any) => {
         if (
-          message.type === 'file_operation_response' &&
-          message.responseToRequestId === requestId
+          message.type !== 'file_operation_response' ||
+          message.responseToRequestId !== requestId
         ) {
-          clearTimeout(timeout);
-          chrome.runtime.onMessage.removeListener(handleMessage);
+          return;
+        }
+        clearTimeout(timeout);
+        chrome.runtime.onMessage.removeListener(handleMessage);
 
-          if (message.payload?.success && message.payload?.filePath) {
-            resolve(message.payload.filePath);
-          } else {
-            console.error(
-              'Native host failed to prepare file:',
-              message.error || message.payload?.error,
-            );
-            resolve(null);
-          }
+        if (message.payload?.success && message.payload?.filePath) {
+          resolve(message.payload.filePath);
+        } else {
+          console.error(
+            'Native host failed to prepare file:',
+            message.error || message.payload?.error,
+          );
+          resolve(null);
         }
       };
 
-      // Add listener
       chrome.runtime.onMessage.addListener(handleMessage);
 
-      // Send message to background script to forward to native host
       chrome.runtime
         .sendMessage({
           type: 'forward_to_native',
           message: {
             type: 'file_operation',
-            requestId: requestId,
-            payload: {
-              action: 'prepareFile',
-              fileUrl,
-              base64Data,
-              fileName,
-            },
+            requestId,
+            payload: { action: 'prepareFile', fileUrl, base64Data, fileName },
           },
         })
         .catch((error) => {
@@ -227,6 +333,22 @@ class FileUploadTool extends BaseBrowserToolExecutor {
         });
     });
   }
+}
+
+/** Accepts the multi-file form and the older single-file arguments alike. */
+function collectSources(args: FileUploadToolParams): FileSource[] {
+  if (args.files?.length) return args.files;
+  if (args.filePath || args.fileUrl || args.base64Data) {
+    return [
+      {
+        filePath: args.filePath,
+        fileUrl: args.fileUrl,
+        base64Data: args.base64Data,
+        fileName: args.fileName,
+      },
+    ];
+  }
+  return [];
 }
 
 export const fileUploadTool = new FileUploadTool();

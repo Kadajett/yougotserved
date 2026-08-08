@@ -47,3 +47,9 @@ CLAUDE.md
 
 .docs/
 .claude/
+# Upstream release bundle. It shipped a real RSA private key in its
+# manifest (extension ID hbdgbgagpkpjffpklnamcljpakneikee). Never restore it.
+releases/
+
+# Scratch output from local adapter runs.
+.adapter-runtime/

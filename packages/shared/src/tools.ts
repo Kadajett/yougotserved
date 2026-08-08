@@ -1143,7 +1143,9 @@ export const TOOL_SCHEMAS: Tool[] = [
   {
     name: TOOL_NAMES.BROWSER.FILE_UPLOAD,
     description:
-      'Upload files to web forms with file input elements using Chrome DevTools Protocol',
+      'Attach local files to a page. Mode "input" sets files on an existing input[type=file], ' +
+      'including a hidden one behind a styled button. Mode "picker" clicks a control and answers ' +
+      'the file dialog it opens, for sites that create the input only on click.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -1152,32 +1154,54 @@ export const TOOL_SCHEMAS: Tool[] = [
           type: 'number',
           description: 'Target window ID to pick active tab when tabId is omitted',
         },
+        mode: {
+          type: 'string',
+          enum: ['input', 'picker'],
+          description: 'Default "input". Use "picker" when no input[type=file] is in the DOM.',
+        },
         selector: {
           type: 'string',
-          description: 'CSS selector for the file input element (input[type="file"])',
+          description: 'CSS selector for the file input. Required for mode "input".',
+        },
+        triggerSelector: {
+          type: 'string',
+          description:
+            'CSS selector for the control that opens the file dialog. Required for mode "picker".',
+        },
+        files: {
+          type: 'array',
+          description: 'Files to attach. Each entry needs one of filePath, fileUrl, or base64Data.',
+          items: {
+            type: 'object',
+            properties: {
+              filePath: { type: 'string', description: 'Absolute local path' },
+              fileUrl: { type: 'string', description: 'URL to download from first' },
+              base64Data: { type: 'string', description: 'Base64 encoded contents' },
+              fileName: { type: 'string', description: 'Name to present, required with base64' },
+            },
+          },
         },
         filePath: {
           type: 'string',
-          description: 'Local file path to upload',
+          description: 'Single-file shorthand for files[]. Absolute local path.',
         },
         fileUrl: {
           type: 'string',
-          description: 'URL to download file from before uploading',
+          description: 'Single-file shorthand for files[]. URL to download from first.',
         },
         base64Data: {
           type: 'string',
-          description: 'Base64 encoded file data to upload',
+          description: 'Single-file shorthand for files[]. Base64 encoded contents.',
         },
         fileName: {
           type: 'string',
           description: 'Optional filename when using base64 or URL (default: "uploaded-file")',
         },
-        multiple: {
-          type: 'boolean',
-          description: 'Whether the input accepts multiple files (default: false)',
+        timeoutMs: {
+          type: 'number',
+          description: 'How long to wait for the file dialog in mode "picker" (default: 10000)',
         },
       },
-      required: ['selector'],
     },
   },
   {

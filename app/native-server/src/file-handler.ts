@@ -19,6 +19,27 @@ export class FileHandler {
   }
 
   /**
+   * Confines a caller-supplied path to our temp directory.
+   *
+   * File operations arrive from the extension, which is in turn driven by
+   * whatever is connected to the MCP server. Upstream constrained
+   * `cleanupFile` this way but not `readBase64File`, so any absolute path —
+   * ~/.ssh/id_rsa, ~/.aws/credentials — could be read and returned base64
+   * encoded. Both go through here now.
+   *
+   * Resolved before comparison so that ../ sequences and symlinked temp dirs
+   * cannot walk out.
+   */
+  private assertInsideTempDir(filePath: string): string {
+    const resolved = fs.existsSync(filePath) ? fs.realpathSync(filePath) : path.resolve(filePath);
+    const root = fs.realpathSync(this.tempDir);
+    if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+      throw new Error(`Refusing to touch ${filePath}: file operations are confined to ${root}.`);
+    }
+    return resolved;
+  }
+
+  /**
    * Handle file preparation request from the extension
    */
   async handleFileRequest(request: any): Promise<any> {
@@ -168,8 +189,9 @@ export class FileHandler {
   /**
    * Read file content and return as base64 string
    */
-  private async readBase64File(filePath: string): Promise<any> {
+  private async readBase64File(rawPath: string): Promise<any> {
     try {
+      const filePath = this.assertInsideTempDir(rawPath);
       if (!fs.existsSync(filePath)) {
         throw new Error(`File does not exist: ${filePath}`);
       }

@@ -1,6 +1,6 @@
 <template>
   <div class="popup-container agent-theme" :data-agent-theme="agentTheme">
-    <!-- 首页 -->
+    <!-- Home -->
     <div v-show="currentView === 'home'" class="home-view">
       <div class="header">
         <div class="header-content">
@@ -8,7 +8,7 @@
         </div>
       </div>
       <div class="content">
-        <!-- 服务配置卡片 -->
+        <!-- Service configuration -->
         <div class="section">
           <h2 class="section-title">{{ getMessage('nativeServerConfigLabel') }}</h2>
           <div class="config-card">
@@ -68,44 +68,37 @@
           </div>
         </div>
 
-        <!-- 快捷工具卡片 -->
+        <!-- Quick tools -->
         <div class="section">
-          <h2 class="section-title">快捷工具</h2>
+          <h2 class="section-title">Quick tools</h2>
           <div class="rr-icon-buttons">
             <button
               class="rr-icon-btn rr-icon-btn-record rr-icon-btn-coming-soon has-tooltip"
               @click="startRecording"
-              data-tooltip="录制功能开发中"
+              data-tooltip="Recording is not wired up yet"
             >
               <RecordIcon :recording="false" />
             </button>
             <button
               class="rr-icon-btn rr-icon-btn-stop rr-icon-btn-coming-soon has-tooltip"
               @click="stopRecording"
-              data-tooltip="录制功能开发中"
+              data-tooltip="Recording is not wired up yet"
             >
               <StopIcon />
             </button>
             <button
-              class="rr-icon-btn rr-icon-btn-edit has-tooltip"
-              @click="toggleWebEditor"
-              data-tooltip="开启页面编辑模式"
-            >
-              <EditIcon />
-            </button>
-            <button
               class="rr-icon-btn rr-icon-btn-marker has-tooltip"
               @click="toggleElementMarker"
-              data-tooltip="开启元素标注"
+              data-tooltip="Toggle element marker"
             >
               <MarkerIcon />
             </button>
           </div>
         </div>
 
-        <!-- 管理入口卡片 -->
+        <!-- Management -->
         <div class="section">
-          <h2 class="section-title">管理入口</h2>
+          <h2 class="section-title">Management</h2>
           <div class="entry-card">
             <button class="entry-item" @click="openAgentSidepanel">
               <div class="entry-icon agent">
@@ -125,8 +118,8 @@
                 </svg>
               </div>
               <div class="entry-content">
-                <span class="entry-title">智能助手</span>
-                <span class="entry-desc">AI Agent 对话与任务</span>
+                <span class="entry-title">Assistant</span>
+                <span class="entry-desc">AI agent chat and tasks</span>
               </div>
               <svg
                 class="entry-arrow"
@@ -146,10 +139,10 @@
               </div>
               <div class="entry-content">
                 <span class="entry-title">
-                  工作流管理
+                  Workflows
                   <span class="coming-soon-badge">Coming Soon</span>
                 </span>
-                <span class="entry-desc">录制与回放自动化流程</span>
+                <span class="entry-desc">Record and replay automations</span>
               </div>
               <svg
                 class="entry-arrow"
@@ -181,41 +174,8 @@
                 </svg>
               </div>
               <div class="entry-content">
-                <span class="entry-title">元素标注管理</span>
-                <span class="entry-desc">管理页面元素标注</span>
-              </div>
-              <svg
-                class="entry-arrow"
-                viewBox="0 0 24 24"
-                width="16"
-                height="16"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-            <button class="entry-item" @click="currentView = 'local-model'">
-              <div class="entry-icon model">
-                <svg
-                  viewBox="0 0 24 24"
-                  width="20"
-                  height="20"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
-              <div class="entry-content">
-                <span class="entry-title">本地模型</span>
-                <span class="entry-desc">语义引擎与模型管理</span>
+                <span class="entry-title">Element markers</span>
+                <span class="entry-desc">Manage page element markers</span>
               </div>
               <svg
                 class="entry-arrow"
@@ -262,55 +222,7 @@
       </div>
     </div>
 
-    <!-- 本地模型二级页面 -->
-    <LocalModelPage
-      v-show="currentView === 'local-model'"
-      :semantic-engine-status="semanticEngineStatus"
-      :is-semantic-engine-initializing="isSemanticEngineInitializing"
-      :semantic-engine-init-progress="semanticEngineInitProgress"
-      :semantic-engine-last-updated="semanticEngineLastUpdated"
-      :available-models="availableModels"
-      :current-model="currentModel"
-      :is-model-switching="isModelSwitching"
-      :is-model-downloading="isModelDownloading"
-      :model-download-progress="modelDownloadProgress"
-      :model-initialization-status="modelInitializationStatus"
-      :model-error-message="modelErrorMessage"
-      :model-error-type="modelErrorType"
-      :storage-stats="storageStats"
-      :is-clearing-data="isClearingData"
-      :clear-data-progress="clearDataProgress"
-      :cache-stats="cacheStats"
-      :is-managing-cache="isManagingCache"
-      @back="currentView = 'home'"
-      @initialize-semantic-engine="initializeSemanticEngine"
-      @switch-model="switchModel"
-      @retry-model-initialization="retryModelInitialization"
-      @show-clear-confirmation="showClearConfirmation = true"
-      @cleanup-cache="cleanupCache"
-      @clear-all-cache="clearAllCache"
-    />
-
-    <ConfirmDialog
-      :visible="showClearConfirmation"
-      :title="getMessage('confirmClearDataTitle')"
-      :message="getMessage('clearDataWarningMessage')"
-      :items="[
-        getMessage('clearDataList1'),
-        getMessage('clearDataList2'),
-        getMessage('clearDataList3'),
-      ]"
-      :warning="getMessage('clearDataIrreversibleWarning')"
-      icon="⚠️"
-      :confirm-text="getMessage('confirmClearButton')"
-      :cancel-text="getMessage('cancelButton')"
-      :confirming-text="getMessage('clearingStatus')"
-      :is-confirming="isClearingData"
-      @confirm="confirmClearAllData"
-      @cancel="hideClearDataConfirmation"
-    />
-
-    <!-- 侧边栏承担工作流管理；编辑器在独立窗口中打开 -->
+    <!-- Workflows live in the side panel; the editor opens in its own window -->
 
     <!-- Coming Soon Toast -->
     <Transition name="toast">
@@ -325,7 +237,7 @@
           <circle cx="12" cy="12" r="10" />
           <path d="M12 6v6l4 2" stroke-linecap="round" stroke-linejoin="round" />
         </svg>
-        <span>{{ comingSoonToast.feature }} 功能开发中，敬请期待</span>
+        <span>{{ comingSoonToast.feature }} is not available yet</span>
       </div>
     </Transition>
   </div>
@@ -333,23 +245,12 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue';
-import {
-  PREDEFINED_MODELS,
-  type ModelPreset,
-  getModelInfo,
-  getCacheStats,
-  clearModelCache,
-  cleanupModelCache,
-} from '@/utils/semantic-similarity-engine';
 import { BACKGROUND_MESSAGE_TYPES } from '@/common/message-types';
 import { LINKS } from '@/common/constants';
 import { getMessage } from '@/utils/i18n';
 import { useAgentTheme, type AgentThemeId } from '../sidepanel/composables/useAgentTheme';
 
-import ConfirmDialog from './components/ConfirmDialog.vue';
 import ProgressIndicator from './components/ProgressIndicator.vue';
-import ModelCacheManagement from './components/ModelCacheManagement.vue';
-import LocalModelPage from './components/LocalModelPage.vue';
 import {
   DocumentIcon,
   DatabaseIcon,
@@ -366,10 +267,10 @@ import {
   MarkerIcon,
 } from './components/icons';
 
-// AgentChat theme - 从preload中获取，保持与sidepanel一致
+// AgentChat theme - Read from preload so it matches the side panel
 const { theme: agentTheme, initTheme } = useAgentTheme();
 
-// 当前视图状态：首页 or 本地模型页
+// Current view
 const currentView = ref<'home' | 'local-model'>('home');
 
 // Coming Soon Toast
@@ -402,7 +303,7 @@ const filteredRrFlows = computed(() => {
   });
 });
 
-// Flow editor在独立窗口中打开；在popup不再展示繁杂列表
+// Flow The editor opens in its own window; the popup no longer lists everything
 
 const loadFlows = async () => {
   try {
@@ -430,27 +331,27 @@ function isFlowBoundToCurrent(flow: any) {
   }
 }
 
-// 运行记录与覆盖项在侧边栏页面查看
+// Run history and overrides live in the side panel
 const startRecording = async () => {
-  // TODO: 录制回放功能开发中，暂时拦截
-  showComingSoonToast('录制回放');
+  // Upstream gated this: the record/replay UI is unfinished.
+  showComingSoonToast('Record & replay');
   return;
   // if (rrRecording.value) return;
   // try {
   //   const res = await chrome.runtime.sendMessage({
   //     type: BACKGROUND_MESSAGE_TYPES.RR_START_RECORDING,
-  //     meta: { name: '新录制' },
+  //     meta: { name: 'New recording' },
   //   });
   //   rrRecording.value = !!(res && res.success);
   // } catch (e) {
-  //   console.error('开始录制失败:', e);
+  //   console.error('Failed to start recording:', e);
   //   rrRecording.value = false;
   // }
 };
 
 const stopRecording = async () => {
-  // TODO: 录制回放功能开发中，暂时拦截
-  showComingSoonToast('录制回放');
+  // Upstream gated this: the record/replay UI is unfinished.
+  showComingSoonToast('Record & replay');
   return;
   // if (!rrRecording.value) return;
   // try {
@@ -460,7 +361,7 @@ const stopRecording = async () => {
   //   rrRecording.value = false;
   //   if (res && res.success) await loadFlows();
   // } catch (e) {
-  //   console.error('停止录制失败:', e);
+  //   console.error('Failed to stop recording:', e);
   //   rrRecording.value = false;
   // }
 };
@@ -485,7 +386,7 @@ const runFlow = async (flowId: string) => {
       options: { ...runOptions, ...ov, returnLogs: true },
     });
     if (!(res && res.success)) {
-      console.warn('回放失败');
+      console.warn('Replay failed');
       return;
     }
     // If failed, open builder and focus the failed node
@@ -495,7 +396,7 @@ const runFlow = async (flowId: string) => {
         const logs = result.logs || [];
         const failed = logs.find((l: any) => l.status === 'failed');
         if (failed && failed.stepId) {
-          // 打开独立编辑窗口并定位失败节点
+          // Open the editor window and jump to the failing node
           if (flow) openBuilderWindow(flow.id, String(failed.stepId));
         }
       } else if (result && result.success === true) {
@@ -506,11 +407,11 @@ const runFlow = async (flowId: string) => {
       }
     } catch {}
   } catch (e) {
-    console.error('回放失败:', e);
+    console.error('Replay failed:', e);
   }
 };
 
-// 旧的“克隆/发布/定时/覆盖项”在侧边栏或编辑器中处理
+// Clone/publish/schedule/overrides are handled in the side panel or editor
 
 const nativeConnectionStatus = ref<'unknown' | 'connected' | 'disconnected'>('unknown');
 const isConnecting = ref(false);
@@ -542,60 +443,6 @@ const mcpConfigJson = computed(() => {
     },
   };
   return JSON.stringify(config, null, 2);
-});
-
-const currentModel = ref<ModelPreset | null>(null);
-const isModelSwitching = ref(false);
-const modelSwitchProgress = ref('');
-
-const modelDownloadProgress = ref<number>(0);
-const isModelDownloading = ref(false);
-const modelInitializationStatus = ref<'idle' | 'downloading' | 'initializing' | 'ready' | 'error'>(
-  'idle',
-);
-const modelErrorMessage = ref<string>('');
-const modelErrorType = ref<'network' | 'file' | 'unknown' | ''>('');
-
-const selectedVersion = ref<'quantized'>('quantized');
-
-const storageStats = ref<{
-  indexedPages: number;
-  totalDocuments: number;
-  totalTabs: number;
-  indexSize: number;
-  isInitialized: boolean;
-} | null>(null);
-const isRefreshingStats = ref(false);
-const isClearingData = ref(false);
-const showClearConfirmation = ref(false);
-const clearDataProgress = ref('');
-
-const semanticEngineStatus = ref<'idle' | 'initializing' | 'ready' | 'error'>('idle');
-const isSemanticEngineInitializing = ref(false);
-const semanticEngineInitProgress = ref('');
-const semanticEngineLastUpdated = ref<number | null>(null);
-
-// Cache management
-const isManagingCache = ref(false);
-const cacheStats = ref<{
-  totalSize: number;
-  totalSizeMB: number;
-  entryCount: number;
-  entries: Array<{
-    url: string;
-    size: number;
-    sizeMB: number;
-    timestamp: number;
-    age: string;
-    expired: boolean;
-  }>;
-} | null>(null);
-
-const availableModels = computed(() => {
-  return Object.entries(PREDEFINED_MODELS).map(([key, value]) => ({
-    preset: key as ModelPreset,
-    ...value,
-  }));
 });
 
 const getStatusClass = () => {
@@ -634,8 +481,8 @@ async function openSidepanelAndClose(tab: string) {
 
 // Open sidepanel from popup for workflow management
 function openWorkflowSidepanel() {
-  // TODO: 工作流功能开发中，暂时拦截
-  showComingSoonToast('工作流管理');
+  // Upstream gated this: workflow management is unfinished.
+  showComingSoonToast('Workflows');
   // openSidepanelAndClose('workflows');
 }
 
@@ -649,30 +496,22 @@ function openAgentSidepanel() {
   openSidepanelAndClose('agent-chat');
 }
 
-async function toggleWebEditor() {
-  try {
-    await chrome.runtime.sendMessage({ type: BACKGROUND_MESSAGE_TYPES.WEB_EDITOR_TOGGLE });
-  } catch (error) {
-    console.warn('切换网页编辑模式失败:', error);
-  }
-}
-
 async function toggleElementMarker() {
   try {
-    // 获取当前活动tab
+    // Get the active tab
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) {
-      console.warn('无法获取当前tab');
+      console.warn('Could not get the active tab');
       return;
     }
 
-    // 向background发送消息，启动元素标注
+    // Ask the background to start the element marker
     await chrome.runtime.sendMessage({
       type: BACKGROUND_MESSAGE_TYPES.ELEMENT_MARKER_START,
       tabId: tab.id,
     });
   } catch (error) {
-    console.warn('开启元素标注失败:', error);
+    console.warn('Failed to start element marker:', error);
   }
 }
 
@@ -715,274 +554,6 @@ const getStatusText = () => {
   }
 };
 
-const formatIndexSize = () => {
-  if (!storageStats.value?.indexSize) return '0 MB';
-  const sizeInMB = Math.round(storageStats.value.indexSize / (1024 * 1024));
-  return `${sizeInMB} MB`;
-};
-
-const getModelDescription = (model: any) => {
-  switch (model.preset) {
-    case 'multilingual-e5-small':
-      return getMessage('lightweightModelDescription');
-    case 'multilingual-e5-base':
-      return getMessage('betterThanSmallDescription');
-    default:
-      return getMessage('multilingualModelDescription');
-  }
-};
-
-const getPerformanceText = (performance: string) => {
-  switch (performance) {
-    case 'fast':
-      return getMessage('fastPerformance');
-    case 'balanced':
-      return getMessage('balancedPerformance');
-    case 'accurate':
-      return getMessage('accuratePerformance');
-    default:
-      return performance;
-  }
-};
-
-const getSemanticEngineStatusText = () => {
-  switch (semanticEngineStatus.value) {
-    case 'ready':
-      return getMessage('semanticEngineReadyStatus');
-    case 'initializing':
-      return getMessage('semanticEngineInitializingStatus');
-    case 'error':
-      return getMessage('semanticEngineInitFailedStatus');
-    case 'idle':
-    default:
-      return getMessage('semanticEngineNotInitStatus');
-  }
-};
-
-const getSemanticEngineStatusClass = () => {
-  switch (semanticEngineStatus.value) {
-    case 'ready':
-      return 'bg-emerald-500';
-    case 'initializing':
-      return 'bg-yellow-500';
-    case 'error':
-      return 'bg-red-500';
-    case 'idle':
-    default:
-      return 'bg-gray-500';
-  }
-};
-
-const getActiveTabsCount = () => {
-  return storageStats.value?.totalTabs || 0;
-};
-
-const getProgressText = () => {
-  if (isModelDownloading.value) {
-    return getMessage('downloadingModelStatus', [modelDownloadProgress.value.toString()]);
-  } else if (isModelSwitching.value) {
-    return modelSwitchProgress.value || getMessage('switchingModelStatus');
-  }
-  return '';
-};
-
-const getErrorTypeText = () => {
-  switch (modelErrorType.value) {
-    case 'network':
-      return getMessage('networkErrorMessage');
-    case 'file':
-      return getMessage('modelCorruptedErrorMessage');
-    case 'unknown':
-    default:
-      return getMessage('unknownErrorMessage');
-  }
-};
-
-const getSemanticEngineButtonText = () => {
-  switch (semanticEngineStatus.value) {
-    case 'ready':
-      return getMessage('reinitializeButton');
-    case 'initializing':
-      return getMessage('initializingStatus');
-    case 'error':
-      return getMessage('reinitializeButton');
-    case 'idle':
-    default:
-      return getMessage('initSemanticEngineButton');
-  }
-};
-
-const loadCacheStats = async () => {
-  try {
-    cacheStats.value = await getCacheStats();
-  } catch (error) {
-    console.error('Failed to get cache stats:', error);
-    cacheStats.value = null;
-  }
-};
-
-const cleanupCache = async () => {
-  if (isManagingCache.value) return;
-
-  isManagingCache.value = true;
-  try {
-    await cleanupModelCache();
-    // Refresh cache stats
-    await loadCacheStats();
-  } catch (error) {
-    console.error('Failed to cleanup cache:', error);
-  } finally {
-    isManagingCache.value = false;
-  }
-};
-
-const clearAllCache = async () => {
-  if (isManagingCache.value) return;
-
-  isManagingCache.value = true;
-  try {
-    await clearModelCache();
-    // Refresh cache stats
-    await loadCacheStats();
-  } catch (error) {
-    console.error('Failed to clear cache:', error);
-  } finally {
-    isManagingCache.value = false;
-  }
-};
-
-const saveSemanticEngineState = async () => {
-  try {
-    const semanticEngineState = {
-      status: semanticEngineStatus.value,
-      lastUpdated: semanticEngineLastUpdated.value,
-    };
-    // eslint-disable-next-line no-undef
-    await chrome.storage.local.set({ semanticEngineState });
-  } catch (error) {
-    console.error('保存语义引擎状态失败:', error);
-  }
-};
-
-const initializeSemanticEngine = async () => {
-  if (isSemanticEngineInitializing.value) return;
-
-  const isReinitialization = semanticEngineStatus.value === 'ready';
-  console.log(
-    `🚀 User triggered semantic engine ${isReinitialization ? 'reinitialization' : 'initialization'}`,
-  );
-
-  isSemanticEngineInitializing.value = true;
-  semanticEngineStatus.value = 'initializing';
-  semanticEngineInitProgress.value = isReinitialization
-    ? getMessage('semanticEngineInitializingStatus')
-    : getMessage('semanticEngineInitializingStatus');
-  semanticEngineLastUpdated.value = Date.now();
-
-  await saveSemanticEngineState();
-
-  try {
-    // eslint-disable-next-line no-undef
-    chrome.runtime
-      .sendMessage({
-        type: BACKGROUND_MESSAGE_TYPES.INITIALIZE_SEMANTIC_ENGINE,
-      })
-      .catch((error) => {
-        console.error('❌ Error sending semantic engine initialization request:', error);
-      });
-
-    startSemanticEngineStatusPolling();
-
-    semanticEngineInitProgress.value = isReinitialization
-      ? getMessage('processingStatus')
-      : getMessage('processingStatus');
-  } catch (error: any) {
-    console.error('❌ Failed to send initialization request:', error);
-    semanticEngineStatus.value = 'error';
-    semanticEngineInitProgress.value = `Failed to send initialization request: ${error?.message || 'Unknown error'}`;
-
-    await saveSemanticEngineState();
-
-    setTimeout(() => {
-      semanticEngineInitProgress.value = '';
-    }, 5000);
-
-    isSemanticEngineInitializing.value = false;
-    semanticEngineLastUpdated.value = Date.now();
-    await saveSemanticEngineState();
-  }
-};
-
-const checkSemanticEngineStatus = async () => {
-  try {
-    // eslint-disable-next-line no-undef
-    const response = await chrome.runtime.sendMessage({
-      type: BACKGROUND_MESSAGE_TYPES.GET_MODEL_STATUS,
-    });
-
-    if (response && response.success && response.status) {
-      const status = response.status;
-
-      if (status.initializationStatus === 'ready') {
-        semanticEngineStatus.value = 'ready';
-        semanticEngineLastUpdated.value = Date.now();
-        isSemanticEngineInitializing.value = false;
-        semanticEngineInitProgress.value = getMessage('semanticEngineReadyStatus');
-        await saveSemanticEngineState();
-        stopSemanticEngineStatusPolling();
-        setTimeout(() => {
-          semanticEngineInitProgress.value = '';
-        }, 2000);
-      } else if (
-        status.initializationStatus === 'downloading' ||
-        status.initializationStatus === 'initializing'
-      ) {
-        semanticEngineStatus.value = 'initializing';
-        isSemanticEngineInitializing.value = true;
-        semanticEngineInitProgress.value = getMessage('semanticEngineInitializingStatus');
-        semanticEngineLastUpdated.value = Date.now();
-        await saveSemanticEngineState();
-      } else if (status.initializationStatus === 'error') {
-        semanticEngineStatus.value = 'error';
-        semanticEngineLastUpdated.value = Date.now();
-        isSemanticEngineInitializing.value = false;
-        semanticEngineInitProgress.value = getMessage('semanticEngineInitFailedStatus');
-        await saveSemanticEngineState();
-        stopSemanticEngineStatusPolling();
-        setTimeout(() => {
-          semanticEngineInitProgress.value = '';
-        }, 5000);
-      } else {
-        semanticEngineStatus.value = 'idle';
-        isSemanticEngineInitializing.value = false;
-        await saveSemanticEngineState();
-      }
-    } else {
-      semanticEngineStatus.value = 'idle';
-      isSemanticEngineInitializing.value = false;
-      await saveSemanticEngineState();
-    }
-  } catch (error) {
-    console.error('Popup: Failed to check semantic engine status:', error);
-    semanticEngineStatus.value = 'idle';
-    isSemanticEngineInitializing.value = false;
-    await saveSemanticEngineState();
-  }
-};
-
-const retryModelInitialization = async () => {
-  if (!currentModel.value) return;
-
-  console.log('🔄 Retrying model initialization...');
-
-  modelErrorMessage.value = '';
-  modelErrorType.value = '';
-  modelInitializationStatus.value = 'downloading';
-  modelDownloadProgress.value = 0;
-  isModelDownloading.value = true;
-  await switchModel(currentModel.value);
-};
-
 const updatePort = async (event: Event) => {
   const target = event.target as HTMLInputElement;
   const newPort = Number(target.value);
@@ -997,7 +568,7 @@ const checkNativeConnection = async () => {
     const response = await chrome.runtime.sendMessage({ type: 'ping_native' });
     nativeConnectionStatus.value = response?.connected ? 'connected' : 'disconnected';
   } catch (error) {
-    console.error('检测 Native 连接状态失败:', error);
+    console.error('Failed to check native connection:', error);
     nativeConnectionStatus.value = 'disconnected';
   }
 };
@@ -1016,7 +587,7 @@ const checkServerStatus = async () => {
       nativeConnectionStatus.value = response.connected ? 'connected' : 'disconnected';
     }
   } catch (error) {
-    console.error('检测服务器状态失败:', error);
+    console.error('Failed to check server status:', error);
   }
 };
 
@@ -1034,7 +605,7 @@ const refreshServerStatus = async () => {
       nativeConnectionStatus.value = response.connected ? 'connected' : 'disconnected';
     }
   } catch (error) {
-    console.error('刷新服务器状态失败:', error);
+    console.error('Failed to refresh server status:', error);
   }
 };
 
@@ -1047,7 +618,7 @@ const copyMcpConfig = async () => {
       copyButtonText.value = getMessage('copyConfigButton');
     }, 2000);
   } catch (error) {
-    console.error('复制配置失败:', error);
+    console.error('Failed to copy config:', error);
     copyButtonText.value = '❌' + getMessage('networkErrorMessage');
 
     setTimeout(() => {
@@ -1065,7 +636,7 @@ const testNativeConnection = async () => {
       await chrome.runtime.sendMessage({ type: 'disconnect_native' });
       nativeConnectionStatus.value = 'disconnected';
     } else {
-      console.log(`尝试连接到端口: ${nativeServerPort.value}`);
+      console.log(`Connecting to port: ${nativeServerPort.value}`);
       // eslint-disable-next-line no-undef
       const response = await chrome.runtime.sendMessage({
         type: 'connectNative',
@@ -1073,120 +644,27 @@ const testNativeConnection = async () => {
       });
       if (response && response.success) {
         nativeConnectionStatus.value = 'connected';
-        console.log('连接成功:', response);
+        console.log('Connected:', response);
         await savePortPreference(nativeServerPort.value);
       } else {
         nativeConnectionStatus.value = 'disconnected';
-        console.error('连接失败:', response);
+        console.error('Connection failed:', response);
       }
     }
   } catch (error) {
-    console.error('测试连接失败:', error);
+    console.error('Connection test failed:', error);
     nativeConnectionStatus.value = 'disconnected';
   } finally {
     isConnecting.value = false;
   }
 };
-
-const loadModelPreference = async () => {
-  try {
-    // eslint-disable-next-line no-undef
-    const result = await chrome.storage.local.get([
-      'selectedModel',
-      'selectedVersion',
-      'modelState',
-      'semanticEngineState',
-    ]);
-
-    if (result.selectedModel) {
-      const storedModel = result.selectedModel as string;
-      console.log('📋 Stored model from storage:', storedModel);
-
-      if (PREDEFINED_MODELS[storedModel as ModelPreset]) {
-        currentModel.value = storedModel as ModelPreset;
-        console.log(`✅ Loaded valid model: ${currentModel.value}`);
-      } else {
-        console.warn(
-          `⚠️ Stored model "${storedModel}" not found in PREDEFINED_MODELS, using default`,
-        );
-        currentModel.value = 'multilingual-e5-small';
-        await saveModelPreference(currentModel.value);
-      }
-    } else {
-      console.log('⚠️ No model found in storage, using default');
-      currentModel.value = 'multilingual-e5-small';
-      await saveModelPreference(currentModel.value);
-    }
-
-    selectedVersion.value = 'quantized';
-    console.log('✅ Using quantized version (fixed)');
-
-    await saveVersionPreference('quantized');
-
-    if (result.modelState) {
-      const modelState = result.modelState;
-
-      if (modelState.status === 'ready') {
-        modelInitializationStatus.value = 'ready';
-        modelDownloadProgress.value = modelState.downloadProgress || 100;
-        isModelDownloading.value = false;
-      } else {
-        modelInitializationStatus.value = 'idle';
-        modelDownloadProgress.value = 0;
-        isModelDownloading.value = false;
-
-        await saveModelState();
-      }
-    } else {
-      modelInitializationStatus.value = 'idle';
-      modelDownloadProgress.value = 0;
-      isModelDownloading.value = false;
-    }
-
-    if (result.semanticEngineState) {
-      const semanticState = result.semanticEngineState;
-      if (semanticState.status === 'ready') {
-        semanticEngineStatus.value = 'ready';
-        semanticEngineLastUpdated.value = semanticState.lastUpdated || Date.now();
-      } else if (semanticState.status === 'error') {
-        semanticEngineStatus.value = 'error';
-        semanticEngineLastUpdated.value = semanticState.lastUpdated || Date.now();
-      } else {
-        semanticEngineStatus.value = 'idle';
-      }
-    } else {
-      semanticEngineStatus.value = 'idle';
-    }
-  } catch (error) {
-    console.error('❌ 加载模型偏好失败:', error);
-  }
-};
-
-const saveModelPreference = async (model: ModelPreset) => {
-  try {
-    // eslint-disable-next-line no-undef
-    await chrome.storage.local.set({ selectedModel: model });
-  } catch (error) {
-    console.error('保存模型偏好失败:', error);
-  }
-};
-
-const saveVersionPreference = async (version: 'full' | 'quantized' | 'compressed') => {
-  try {
-    // eslint-disable-next-line no-undef
-    await chrome.storage.local.set({ selectedVersion: version });
-  } catch (error) {
-    console.error('保存版本偏好失败:', error);
-  }
-};
-
 const savePortPreference = async (port: number) => {
   try {
     // eslint-disable-next-line no-undef
     await chrome.storage.local.set({ nativeServerPort: port });
-    console.log(`端口偏好已保存: ${port}`);
+    console.log(`Port preference saved: ${port}`);
   } catch (error) {
-    console.error('保存端口偏好失败:', error);
+    console.error('Failed to save port preference:', error);
   }
 };
 
@@ -1196,301 +674,10 @@ const loadPortPreference = async () => {
     const result = await chrome.storage.local.get(['nativeServerPort']);
     if (result.nativeServerPort) {
       nativeServerPort.value = result.nativeServerPort;
-      console.log(`端口偏好已加载: ${result.nativeServerPort}`);
+      console.log(`Port preference loaded: ${result.nativeServerPort}`);
     }
   } catch (error) {
-    console.error('加载端口偏好失败:', error);
-  }
-};
-
-const saveModelState = async () => {
-  try {
-    const modelState = {
-      status: modelInitializationStatus.value,
-      downloadProgress: modelDownloadProgress.value,
-      isDownloading: isModelDownloading.value,
-      lastUpdated: Date.now(),
-    };
-    // eslint-disable-next-line no-undef
-    await chrome.storage.local.set({ modelState });
-  } catch (error) {
-    console.error('保存模型状态失败:', error);
-  }
-};
-
-let statusMonitoringInterval: ReturnType<typeof setInterval> | null = null;
-let semanticEngineStatusPollingInterval: ReturnType<typeof setInterval> | null = null;
-
-const startModelStatusMonitoring = () => {
-  if (statusMonitoringInterval) {
-    clearInterval(statusMonitoringInterval);
-  }
-
-  statusMonitoringInterval = setInterval(async () => {
-    try {
-      // eslint-disable-next-line no-undef
-      const response = await chrome.runtime.sendMessage({
-        type: 'get_model_status',
-      });
-
-      if (response && response.success) {
-        const status = response.status;
-        modelInitializationStatus.value = status.initializationStatus || 'idle';
-        modelDownloadProgress.value = status.downloadProgress || 0;
-        isModelDownloading.value = status.isDownloading || false;
-
-        if (status.initializationStatus === 'error') {
-          modelErrorMessage.value = status.errorMessage || getMessage('modelFailedStatus');
-          modelErrorType.value = status.errorType || 'unknown';
-        } else {
-          modelErrorMessage.value = '';
-          modelErrorType.value = '';
-        }
-
-        await saveModelState();
-
-        if (status.initializationStatus === 'ready' || status.initializationStatus === 'error') {
-          stopModelStatusMonitoring();
-        }
-      }
-    } catch (error) {
-      console.error('获取模型状态失败:', error);
-    }
-  }, 1000);
-};
-
-const stopModelStatusMonitoring = () => {
-  if (statusMonitoringInterval) {
-    clearInterval(statusMonitoringInterval);
-    statusMonitoringInterval = null;
-  }
-};
-
-const startSemanticEngineStatusPolling = () => {
-  if (semanticEngineStatusPollingInterval) {
-    clearInterval(semanticEngineStatusPollingInterval);
-  }
-
-  semanticEngineStatusPollingInterval = setInterval(async () => {
-    try {
-      await checkSemanticEngineStatus();
-    } catch (error) {
-      console.error('Semantic engine status polling failed:', error);
-    }
-  }, 2000);
-};
-
-const stopSemanticEngineStatusPolling = () => {
-  if (semanticEngineStatusPollingInterval) {
-    clearInterval(semanticEngineStatusPollingInterval);
-    semanticEngineStatusPollingInterval = null;
-  }
-};
-
-const refreshStorageStats = async () => {
-  if (isRefreshingStats.value) return;
-
-  isRefreshingStats.value = true;
-  try {
-    console.log('🔄 Refreshing storage statistics...');
-
-    // eslint-disable-next-line no-undef
-    const response = await chrome.runtime.sendMessage({
-      type: 'get_storage_stats',
-    });
-
-    if (response && response.success) {
-      storageStats.value = {
-        indexedPages: response.stats.indexedPages || 0,
-        totalDocuments: response.stats.totalDocuments || 0,
-        totalTabs: response.stats.totalTabs || 0,
-        indexSize: response.stats.indexSize || 0,
-        isInitialized: response.stats.isInitialized || false,
-      };
-      console.log('✅ Storage stats refreshed:', storageStats.value);
-    } else {
-      console.error('❌ Failed to get storage stats:', response?.error);
-      storageStats.value = {
-        indexedPages: 0,
-        totalDocuments: 0,
-        totalTabs: 0,
-        indexSize: 0,
-        isInitialized: false,
-      };
-    }
-  } catch (error) {
-    console.error('❌ Error refreshing storage stats:', error);
-    storageStats.value = {
-      indexedPages: 0,
-      totalDocuments: 0,
-      totalTabs: 0,
-      indexSize: 0,
-      isInitialized: false,
-    };
-  } finally {
-    isRefreshingStats.value = false;
-  }
-};
-
-const hideClearDataConfirmation = () => {
-  showClearConfirmation.value = false;
-};
-
-const confirmClearAllData = async () => {
-  if (isClearingData.value) return;
-
-  isClearingData.value = true;
-  clearDataProgress.value = getMessage('clearingStatus');
-
-  try {
-    console.log('🗑️ Starting to clear all data...');
-
-    // eslint-disable-next-line no-undef
-    const response = await chrome.runtime.sendMessage({
-      type: 'clear_all_data',
-    });
-
-    if (response && response.success) {
-      clearDataProgress.value = getMessage('dataClearedNotification');
-      console.log('✅ All data cleared successfully');
-
-      await refreshStorageStats();
-
-      setTimeout(() => {
-        clearDataProgress.value = '';
-        hideClearDataConfirmation();
-      }, 2000);
-    } else {
-      throw new Error(response?.error || 'Failed to clear data');
-    }
-  } catch (error: any) {
-    console.error('❌ Failed to clear all data:', error);
-    clearDataProgress.value = `Failed to clear data: ${error?.message || 'Unknown error'}`;
-
-    setTimeout(() => {
-      clearDataProgress.value = '';
-    }, 5000);
-  } finally {
-    isClearingData.value = false;
-  }
-};
-
-const switchModel = async (newModel: ModelPreset) => {
-  console.log(`🔄 switchModel called with newModel: ${newModel}`);
-
-  if (isModelSwitching.value) {
-    console.log('⏸️ Model switch already in progress, skipping');
-    return;
-  }
-
-  const isSameModel = newModel === currentModel.value;
-  const currentModelInfo = currentModel.value
-    ? getModelInfo(currentModel.value)
-    : getModelInfo('multilingual-e5-small');
-  const newModelInfo = getModelInfo(newModel);
-  const isDifferentDimension = currentModelInfo.dimension !== newModelInfo.dimension;
-
-  console.log(`📊 Switch analysis:`);
-  console.log(`   - Same model: ${isSameModel} (${currentModel.value} -> ${newModel})`);
-  console.log(
-    `   - Current dimension: ${currentModelInfo.dimension}, New dimension: ${newModelInfo.dimension}`,
-  );
-  console.log(`   - Different dimension: ${isDifferentDimension}`);
-
-  if (isSameModel && !isDifferentDimension) {
-    console.log('✅ Same model and dimension - no need to switch');
-    return;
-  }
-
-  const switchReasons = [];
-  if (!isSameModel) switchReasons.push('different model');
-  if (isDifferentDimension) switchReasons.push('different dimension');
-
-  console.log(`🚀 Switching model due to: ${switchReasons.join(', ')}`);
-  console.log(
-    `📋 Model: ${currentModel.value} (${currentModelInfo.dimension}D) -> ${newModel} (${newModelInfo.dimension}D)`,
-  );
-
-  isModelSwitching.value = true;
-  modelSwitchProgress.value = getMessage('switchingModelStatus');
-
-  modelInitializationStatus.value = 'downloading';
-  modelDownloadProgress.value = 0;
-  isModelDownloading.value = true;
-
-  try {
-    await saveModelPreference(newModel);
-    await saveVersionPreference('quantized');
-    await saveModelState();
-
-    modelSwitchProgress.value = getMessage('semanticEngineInitializingStatus');
-
-    startModelStatusMonitoring();
-
-    // eslint-disable-next-line no-undef
-    const response = await chrome.runtime.sendMessage({
-      type: 'switch_semantic_model',
-      modelPreset: newModel,
-      modelVersion: 'quantized',
-      modelDimension: newModelInfo.dimension,
-      previousDimension: currentModelInfo.dimension,
-    });
-
-    if (response && response.success) {
-      currentModel.value = newModel;
-      modelSwitchProgress.value = getMessage('successNotification');
-      console.log(
-        '模型切换成功:',
-        newModel,
-        'version: quantized',
-        'dimension:',
-        newModelInfo.dimension,
-      );
-
-      modelInitializationStatus.value = 'ready';
-      isModelDownloading.value = false;
-      await saveModelState();
-
-      setTimeout(() => {
-        modelSwitchProgress.value = '';
-      }, 2000);
-    } else {
-      throw new Error(response?.error || 'Model switch failed');
-    }
-  } catch (error: any) {
-    console.error('模型切换失败:', error);
-    modelSwitchProgress.value = `Model switch failed: ${error?.message || 'Unknown error'}`;
-
-    modelInitializationStatus.value = 'error';
-    isModelDownloading.value = false;
-
-    const errorMessage = error?.message || '未知错误';
-    if (
-      errorMessage.includes('network') ||
-      errorMessage.includes('fetch') ||
-      errorMessage.includes('timeout')
-    ) {
-      modelErrorType.value = 'network';
-      modelErrorMessage.value = getMessage('networkErrorMessage');
-    } else if (
-      errorMessage.includes('corrupt') ||
-      errorMessage.includes('invalid') ||
-      errorMessage.includes('format')
-    ) {
-      modelErrorType.value = 'file';
-      modelErrorMessage.value = getMessage('modelCorruptedErrorMessage');
-    } else {
-      modelErrorType.value = 'unknown';
-      modelErrorMessage.value = errorMessage;
-    }
-
-    await saveModelState();
-
-    setTimeout(() => {
-      modelSwitchProgress.value = '';
-    }, 8000);
-  } finally {
-    isModelSwitching.value = false;
+    console.error('Failed to load port preference:', error);
   }
 };
 
@@ -1513,21 +700,17 @@ const setupServerStatusListener = () => {
 };
 
 onMounted(async () => {
-  // 初始化主题
+  // Initialise theme
   await initTheme();
   await loadPortPreference();
-  await loadModelPreference();
   await checkNativeConnection();
   await checkServerStatus();
-  await refreshStorageStats();
-  await loadCacheStats();
   await loadFlows();
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     currentTabUrl.value = tab?.url || '';
   } catch {}
 
-  await checkSemanticEngineStatus();
   setupServerStatusListener();
   // Auto-refresh workflows list when storage rr_flows changes
   try {
@@ -1543,8 +726,6 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  stopModelStatusMonitoring();
-  stopSemanticEngineStatusPolling();
   // Clean up runtime message listener
   try {
     const msgFn = (window as any).__rr_popup_onMessage;
@@ -2359,7 +1540,7 @@ onUnmounted(() => {
   }
 }
 
-/* 快捷工具icon按钮样式 */
+/* Quick tool icon buttons */
 .rr-icon-buttons {
   display: flex;
   gap: 12px;
@@ -2399,7 +1580,7 @@ onUnmounted(() => {
   height: 24px;
 }
 
-/* 录制按钮 - 红色 */
+/* Record button */
 .rr-icon-btn-record {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
@@ -2410,7 +1591,7 @@ onUnmounted(() => {
   color: #dc2626;
 }
 
-/* 录制中状态 - 脉冲动画 */
+/* Recording state - pulse animation */
 .rr-icon-btn-recording {
   animation: pulse-recording 1.5s ease-in-out infinite;
 }
@@ -2425,7 +1606,7 @@ onUnmounted(() => {
   }
 }
 
-/* 停止按钮 - 深红色 */
+/* Stop button */
 .rr-icon-btn-stop {
   background: rgba(185, 28, 28, 0.1);
   color: #b91c1c;
@@ -2436,7 +1617,7 @@ onUnmounted(() => {
   color: #991b1b;
 }
 
-/* 编辑按钮 - 蓝色 */
+/* Edit button */
 .rr-icon-btn-edit {
   background: rgba(37, 99, 235, 0.1);
   color: #2563eb;
@@ -2447,7 +1628,7 @@ onUnmounted(() => {
   color: #1d4ed8;
 }
 
-/* 标注按钮 - 绿色 */
+/* Marker button */
 .rr-icon-btn-marker {
   background: rgba(16, 185, 129, 0.1);
   color: #10b981;
@@ -2458,7 +1639,7 @@ onUnmounted(() => {
   color: #059669;
 }
 
-/* Coming Soon 按钮样式 */
+/* Coming Soon Button styles */
 .rr-icon-btn-coming-soon {
   opacity: 0.5;
   cursor: default !important;
@@ -2521,14 +1702,14 @@ onUnmounted(() => {
   visibility: visible;
 }
 
-/* 首页视图 */
+/* Home view */
 .home-view {
   display: flex;
   flex-direction: column;
   height: 100%;
 }
 
-/* 管理入口卡片样式 */
+/* Management card */
 .entry-card {
   background: var(--ac-surface, white);
   border-radius: var(--ac-radius-card, 12px);

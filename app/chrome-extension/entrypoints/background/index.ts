@@ -1,13 +1,6 @@
 import { initNativeHostListener } from './native-host';
-import {
-  initSemanticSimilarityListener,
-  initializeSemanticEngineIfCached,
-} from './semantic-similarity';
-import { initStorageManagerListener } from './storage-manager';
-import { cleanupModelCache } from '@/utils/semantic-similarity-engine';
 import { initRecordReplayListeners } from './record-replay';
 import { initElementMarkerListeners } from './element-marker';
-import { initWebEditorListeners } from './web-editor';
 import { initQuickPanelAgentHandler } from './quick-panel/agent-handler';
 import { initQuickPanelCommands } from './quick-panel/commands';
 import { initQuickPanelTabsHandler } from './quick-panel/tabs-handler';
@@ -38,8 +31,6 @@ export default defineBackground(() => {
 
   // Initialize core services
   initNativeHostListener();
-  initSemanticSimilarityListener();
-  initStorageManagerListener();
   // Record & Replay V1/V2 listeners
   initRecordReplayListeners();
 
@@ -56,32 +47,10 @@ export default defineBackground(() => {
 
   // Element marker: context menu + CRUD listeners
   initElementMarkerListeners();
-  // Web editor: toggle edit-mode overlay
-  initWebEditorListeners();
   // Quick Panel: send messages to AgentChat via background-stream bridge
   initQuickPanelAgentHandler();
   // Quick Panel: tabs search bridge for content script UI
   initQuickPanelTabsHandler();
   // Quick Panel: keyboard shortcut handler
   initQuickPanelCommands();
-
-  // Conditionally initialize semantic similarity engine if model cache exists
-  initializeSemanticEngineIfCached()
-    .then((initialized) => {
-      if (initialized) {
-        console.log('Background: Semantic similarity engine initialized from cache');
-      } else {
-        console.log(
-          'Background: Semantic similarity engine initialization skipped (no cache found)',
-        );
-      }
-    })
-    .catch((error) => {
-      console.warn('Background: Failed to conditionally initialize semantic engine:', error);
-    });
-
-  // Initial cleanup on startup
-  cleanupModelCache().catch((error) => {
-    console.warn('Background: Initial cache cleanup failed:', error);
-  });
 });

@@ -2,7 +2,7 @@
  * Sidepanel Utilities
  *
  * Shared helpers for opening and managing the Chrome sidepanel from background modules.
- * Used by web-editor, quick-panel, and other modules that need to trigger sidepanel navigation.
+ * Used by quick-panel and other modules that need to trigger sidepanel navigation.
  */
 
 /**

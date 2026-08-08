@@ -801,6 +801,11 @@ export async function collectDoctorReport(options: DoctorOptions): Promise<Docto
   });
 
   // Check 5: Manifest checks per browser
+  //
+  // A registered manifest may legitimately allow an ID other than the published
+  // one — that is the whole point of `register --extension-id`, which a locally
+  // built (unpacked) extension needs. So validate the shape of allowed_origins
+  // and report which ID is trusted, rather than demanding the default.
   const expectedOrigin = `chrome-extension://${EXTENSION_ID}/`;
   for (const browser of browsersToCheck) {
     const config = getBrowserConfig(browser);
@@ -850,19 +855,36 @@ export async function collectDoctorReport(options: DoctorOptions): Promise<Docto
       if (!fs.existsSync(manifest.path)) issues.push('path target does not exist');
     }
     const allowedOrigins = manifest.allowed_origins;
-    if (!Array.isArray(allowedOrigins) || !allowedOrigins.includes(expectedOrigin)) {
-      issues.push(`allowed_origins missing ${expectedOrigin}`);
+    const originPattern = /^chrome-extension:\/\/[a-p]{32}\/$/;
+    let trustedIds: string[] = [];
+    if (!Array.isArray(allowedOrigins) || allowedOrigins.length === 0) {
+      issues.push('allowed_origins is missing or empty');
+    } else {
+      const malformed = allowedOrigins.filter(
+        (o) => typeof o !== 'string' || !originPattern.test(o),
+      );
+      if (malformed.length) {
+        issues.push(`allowed_origins has malformed entries: ${malformed.join(', ')}`);
+      }
+      trustedIds = allowedOrigins
+        .filter((o): o is string => typeof o === 'string' && originPattern.test(o))
+        .map((o) => o.slice('chrome-extension://'.length, -1));
+      // A non-default ID is normal for a locally built extension, not an error.
     }
 
     checks.push({
       id: `manifest.${browser}`,
       title: `${config.displayName} manifest`,
       status: issues.length === 0 ? 'ok' : 'error',
-      message: issues.length === 0 ? found : `Invalid manifest (${issues.join('; ')})`,
+      message:
+        issues.length === 0
+          ? `${found} (trusts ${trustedIds.join(', ') || 'nothing'})`
+          : `Invalid manifest (${issues.join('; ')})`,
       details: {
         path: found,
         expectedWrapperPath: wrapperPath,
         expectedOrigin,
+        trustedExtensionIds: trustedIds,
         fix: issues.length === 0 ? undefined : [`${COMMAND_NAME} register --browser ${browser}`],
       },
     });
@@ -1076,8 +1098,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     for (const check of report.checks) {
       console.log(`${statusBadge(check.status)}    ${check.title}: ${check.message}`);
       const fix = (check.details as Record<string, unknown> | undefined)?.fix as
-        | string[]
-        | undefined;
+        string[] | undefined;
       if (check.status !== 'ok' && fix && fix.length > 0) {
         console.log(`        Fix: ${fix[0]}`);
       }

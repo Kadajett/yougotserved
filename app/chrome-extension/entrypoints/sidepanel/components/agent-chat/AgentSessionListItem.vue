@@ -288,14 +288,8 @@ const displayProjectPath = computed(() => {
 
 const hasPreview = computed(() => !!props.session.preview || !!props.session.previewMeta);
 
-const isWebEditorApplyPreview = computed(() => {
-  const meta = props.session.previewMeta;
-  if (!meta?.clientMeta?.kind) return false;
-  return (
-    meta.clientMeta.kind === 'web_editor_apply_batch' ||
-    meta.clientMeta.kind === 'web_editor_apply_single'
-  );
-});
+// The web editor was removed, so no message carries apply metadata any more.
+const isWebEditorApplyPreview = computed(() => false);
 
 const previewDisplayText = computed(() => {
   const meta = props.session.previewMeta;

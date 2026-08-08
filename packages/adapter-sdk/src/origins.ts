@@ -1,0 +1,142 @@
+/**
+ * Origin fencing.
+ *
+ * An adapter runs against a browser holding the user's real cookies. The whole
+ * point of the project is that `linkedin_search_people` uses a genuine
+ * LinkedIn session — which also means a LinkedIn adapter that can navigate
+ * anywhere is a LinkedIn adapter that can drive the user's bank.
+ *
+ * So every adapter declares the origins it needs, and the host refuses
+ * navigation and extraction outside them. The declaration is data, checked by
+ * the host, not a promise the adapter makes to itself.
+ */
+
+export class OriginError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OriginError';
+  }
+}
+
+/**
+ * One entry from an adapter's `origins` list, parsed.
+ *
+ * Matching is explicit on purpose. `linkedin.com` allows exactly
+ * `https://linkedin.com`; to include `www.` and the rest, write
+ * `*.linkedin.com`. Implicit subdomain matching is where allowlists quietly
+ * grow holes.
+ */
+export interface OriginRule {
+  source: string;
+  protocol: 'http:' | 'https:';
+  host: string;
+  port: string;
+  includeSubdomains: boolean;
+}
+
+const HOST_PATTERN = /^[a-z0-9.-]+$/;
+
+export function parseOriginPattern(pattern: string): OriginRule {
+  const raw = pattern.trim().toLowerCase();
+  if (!raw) throw new OriginError('An origin pattern cannot be empty.');
+
+  let wildcard = false;
+  let candidate = raw;
+
+  // Strip the wildcard before URL parsing; `https://*.example.com` is not a
+  // legal URL, so the built-in parser would reject the very syntax we want.
+  const wildcardMatch = candidate.match(/^(https?:\/\/)?\*\.(.+)$/);
+  if (wildcardMatch) {
+    wildcard = true;
+    candidate = `${wildcardMatch[1] ?? ''}${wildcardMatch[2]}`;
+  }
+  if (candidate.includes('*')) {
+    throw new OriginError(
+      `Origin "${pattern}" is not supported. The only wildcard is a leading "*." ` +
+        `(for example "*.linkedin.com").`,
+    );
+  }
+
+  const withScheme = candidate.includes('://') ? candidate : `https://${candidate}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    throw new OriginError(`Origin "${pattern}" is not a valid host or origin.`);
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    throw new OriginError(`Origin "${pattern}" must be http or https.`);
+  }
+  if (!url.hostname || !HOST_PATTERN.test(url.hostname)) {
+    throw new OriginError(`Origin "${pattern}" has no usable hostname.`);
+  }
+  if (url.pathname !== '/' && url.pathname !== '') {
+    throw new OriginError(
+      `Origin "${pattern}" must not include a path. Fence by origin; match paths inside the tool.`,
+    );
+  }
+
+  return {
+    source: pattern.trim(),
+    protocol: url.protocol,
+    host: url.hostname,
+    port: url.port,
+    includeSubdomains: wildcard,
+  };
+}
+
+function matches(rule: OriginRule, url: URL): boolean {
+  if (url.protocol !== rule.protocol) return false;
+  if (rule.port && url.port !== rule.port) return false;
+
+  const host = url.hostname.toLowerCase();
+  if (host === rule.host) return true;
+  return rule.includeSubdomains && host.endsWith(`.${rule.host}`);
+}
+
+export interface UrlGuard {
+  /** The patterns this guard was built from, for error messages and audit. */
+  readonly origins: readonly string[];
+  allows(url: string): boolean;
+  /** Throws {@link OriginError} instead of returning false. */
+  assert(url: string, action?: string): void;
+}
+
+/**
+ * Builds the guard the host wraps around every navigation an adapter attempts.
+ */
+export function createUrlGuard(patterns: readonly string[]): UrlGuard {
+  if (patterns.length === 0) {
+    throw new OriginError(
+      'An adapter must declare at least one origin. Tools run against a logged-in browser, ' +
+        'so there is no safe default.',
+    );
+  }
+  const rules = patterns.map(parseOriginPattern);
+  const sources = rules.map((rule) => rule.source);
+
+  function allows(candidate: string): boolean {
+    let url: URL;
+    try {
+      url = new URL(candidate);
+    } catch {
+      return false;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+    return rules.some((rule) => matches(rule, url));
+  }
+
+  return {
+    origins: sources,
+    allows,
+    assert(candidate: string, action = 'navigate to') {
+      if (!allows(candidate)) {
+        throw new OriginError(
+          `Refusing to ${action} ${candidate}: outside this adapter's declared origins ` +
+            `(${sources.join(', ')}).`,
+        );
+      }
+    },
+  };
+}

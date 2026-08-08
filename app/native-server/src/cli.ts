@@ -10,6 +10,7 @@ import {
   ensureExecutionPermissions,
   writeNodePathFile,
 } from './scripts/utils';
+import { DEFAULT_EXTENSION_ID, resolveExtensionId } from './scripts/constant';
 import { BrowserType, parseBrowserType, detectInstalledBrowsers } from './scripts/browser-config';
 import { runDoctor } from './scripts/doctor';
 import { runReport } from './scripts/report';
@@ -26,10 +27,19 @@ program
   .option('-s, --system', 'Use system-level installation (requires administrator/sudo privileges)')
   .option('-b, --browser <browser>', 'Register for specific browser (chrome, chromium, or all)')
   .option('-d, --detect', 'Auto-detect installed browsers')
+  .option(
+    '-e, --extension-id <id>',
+    'Extension ID allowed to connect. Required for a locally built (unpacked) extension, whose ID Chrome derives from its folder path. Falls back to MCP_CHROME_EXTENSION_ID, then the published ID.',
+  )
   .action(async (options) => {
     try {
       // Write Node.js path for run_host scripts
       writeNodePathFile(__dirname);
+
+      const extensionId = resolveExtensionId(options.extensionId);
+      if (extensionId !== DEFAULT_EXTENSION_ID) {
+        console.log(colorText(`Allowing extension ID: ${extensionId}`, 'blue'));
+      }
 
       // Determine which browsers to register
       let targetBrowsers: BrowserType[] | undefined;
@@ -85,7 +95,7 @@ program
       // If --system option is specified or running with root/administrator privileges
       if (options.system || hasElevatedPermissions) {
         // TODO: Update registerWithElevatedPermissions to support multiple browsers
-        await registerWithElevatedPermissions();
+        await registerWithElevatedPermissions(extensionId);
         console.log(
           colorText('System-level Native Messaging host registered successfully!', 'green'),
         );
@@ -98,7 +108,7 @@ program
       } else {
         // Regular user-level installation
         console.log(colorText('Registering user-level Native Messaging host...', 'blue'));
-        const success = await tryRegisterUserLevelHost(targetBrowsers);
+        const success = await tryRegisterUserLevelHost(targetBrowsers, extensionId);
 
         if (success) {
           console.log(colorText('Native Messaging host registered successfully!', 'green'));

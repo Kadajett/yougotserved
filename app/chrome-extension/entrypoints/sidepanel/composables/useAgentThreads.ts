@@ -18,12 +18,7 @@ export const AGENT_SERVER_PORT_KEY: InjectionKey<Ref<number | null>> = Symbol('a
 
 /** Thread state */
 export type AgentThreadState =
-  | 'idle'
-  | 'starting'
-  | 'running'
-  | 'completed'
-  | 'error'
-  | 'cancelled';
+  'idle' | 'starting' | 'running' | 'completed' | 'error' | 'cancelled';
 
 /** Tool kinds for presentation */
 export type ToolKind = 'grep' | 'read' | 'edit' | 'run' | 'plan' | 'generic';
@@ -111,24 +106,6 @@ export type TimelineItem =
       text?: string;
     };
 
-/** Client metadata for web editor apply messages */
-export interface WebEditorApplyMeta {
-  kind: 'web_editor_apply_batch' | 'web_editor_apply_single';
-  pageUrl?: string;
-  elementCount?: number;
-  elementLabels?: string[];
-}
-
-/** Thread header data for special message types */
-export interface ThreadHeader {
-  /** Display text (compact representation) */
-  displayText?: string;
-  /** Full prompt content for hover display */
-  fullContent: string;
-  /** Web editor apply metadata */
-  webEditorApply?: WebEditorApplyMeta;
-}
-
 /** A grouped conversation thread */
 export interface AgentThread {
   id: string;
@@ -139,8 +116,6 @@ export interface AgentThread {
   items: TimelineItem[];
   /** Attachments from the user prompt (for display in thread header) */
   attachments: AttachmentMetadata[];
-  /** Thread header data for special message rendering */
-  header?: ThreadHeader;
 }
 
 /** Options for useAgentThreads */
@@ -577,8 +552,6 @@ function buildThreads(
       title?: string;
       items: TimelineItem[];
       attachments: AttachmentMetadata[];
-      /** Thread header for special message types */
-      header?: ThreadHeader;
     }
   >();
 
@@ -605,44 +578,17 @@ function buildThreads(
 
     const group = ensureGroup(key, rid, msg.createdAt);
 
-    // Title, attachments, and header: first user chat message in group wins
+    // Title and attachments: first user chat message in group wins
     if (!group.title && msg.role === 'user' && msg.messageType === 'chat') {
       const fullContent = msg.content.trim();
       const attachments = getMessageAttachments(msg);
-      const meta = (msg.metadata ?? {}) as Record<string, unknown>;
 
-      // Extract client metadata for special message types (with runtime validation)
-      const rawClientMeta = meta.clientMeta;
-      const rawDisplayText = meta.displayText;
-
-      // Validate clientMeta structure
-      const clientMeta: WebEditorApplyMeta | undefined =
-        rawClientMeta &&
-        typeof rawClientMeta === 'object' &&
-        'kind' in rawClientMeta &&
-        typeof (rawClientMeta as Record<string, unknown>).kind === 'string' &&
-        ((rawClientMeta as Record<string, unknown>).kind === 'web_editor_apply_batch' ||
-          (rawClientMeta as Record<string, unknown>).kind === 'web_editor_apply_single')
-          ? (rawClientMeta as WebEditorApplyMeta)
-          : undefined;
-
-      const displayText = typeof rawDisplayText === 'string' ? rawDisplayText : undefined;
-
-      // Store attachments for thread header display
+      // Store attachments for thread display
       if (attachments.length > 0) {
         group.attachments = attachments;
       }
 
-      // Build thread header for special message types
-      if (clientMeta?.kind?.startsWith('web_editor_apply')) {
-        group.header = {
-          displayText: displayText || `Apply ${clientMeta.elementCount ?? 0} changes`,
-          fullContent,
-          webEditorApply: clientMeta,
-        };
-        // Use display text as title for web editor apply messages
-        group.title = displayText || `Apply ${clientMeta.elementCount ?? 0} changes`;
-      } else if (fullContent) {
+      if (fullContent) {
         group.title = fullContent;
       } else {
         // Image-only message - use attachment count as title
@@ -707,7 +653,6 @@ function buildThreads(
       state,
       items,
       attachments: g.attachments,
-      header: g.header,
     });
   }
 
