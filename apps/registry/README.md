@@ -1,5 +1,7 @@
 # Registry
 
+Live at <https://yougotserved-registry.jeremy-ryan-stover.workers.dev>.
+
 Stores and serves adapter packs. The Worker never runs adapter code, because a
 pack is JSON. That keeps the extension inside the Chrome Web Store rule against
 remotely hosted code.
@@ -13,7 +15,7 @@ Run these once. The `d1 create` step prints a `database_id`, which goes into
 wrangler login
 wrangler d1 create yougotserved-registry
 wrangler d1 execute yougotserved-registry --remote --file=schema.sql
-wrangler secret put PUBLISH_TOKEN
+wrangler secret put PUBLISH_TOKENS
 wrangler secret put VOTER_SALT
 wrangler deploy
 ```
@@ -27,6 +29,12 @@ put a real token in that file.
 pnpm --filter @yougotserved/registry db:local
 pnpm --filter @yougotserved/registry dev
 ```
+
+## Publishing tokens
+
+`PUBLISH_TOKENS` holds one token, or several separated by commas. Separate
+tokens let one be revoked without locking the others out. A token shorter than
+16 characters is ignored, so an empty secret cannot open the route.
 
 ## API
 

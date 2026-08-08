@@ -8,7 +8,7 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "yougotserved-registry"
-database_id = "PLACEHOLDER_RUN_WRANGLER_D1_CREATE"
+database_id = "112c16d2-8ee4-4e09-baf8-9616d1e2ef82"
 
 [observability]
 enabled = true

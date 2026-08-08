@@ -11,7 +11,13 @@ import { PAGE } from './page.js';
 
 export interface Env {
   DB: D1Database;
-  /** Shared secret for publishing. Set with `wrangler secret put PUBLISH_TOKEN`. */
+  /**
+   * Publishing tokens, comma separated, one for each maintainer. Separate
+   * tokens mean one can be revoked without locking the others out.
+   * Set with `wrangler secret put PUBLISH_TOKENS`.
+   */
+  PUBLISH_TOKENS?: string;
+  /** Older single-token name. Still accepted. */
   PUBLISH_TOKEN?: string;
   /** Salt for hashing install ids before they are stored. */
   VOTER_SALT?: string;
@@ -199,8 +205,17 @@ async function downloadPack(id: string, version: string, env: Env): Promise<Resp
 
 async function publish(request: Request, env: Env): Promise<Response> {
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  if (!env.PUBLISH_TOKEN || token !== env.PUBLISH_TOKEN) {
-    return fail(401, 'Publishing needs a bearer token.', 'Set PUBLISH_TOKEN as a Wrangler secret.');
+  const allowed = `${env.PUBLISH_TOKENS ?? ''},${env.PUBLISH_TOKEN ?? ''}`
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length >= 16);
+
+  if (!token || !allowed.includes(token)) {
+    return fail(
+      401,
+      'Publishing needs a bearer token.',
+      'Set PUBLISH_TOKENS as a Wrangler secret. A token shorter than 16 characters is ignored.',
+    );
   }
 
   const body = (await request.json()) as { pack?: unknown; digest?: string; author?: string };

@@ -24,8 +24,29 @@ interface LoadedPack {
 }
 
 let cache: LoadedPack[] | null = null;
+let cacheSignature = '';
 /** Tool name to the pack and tool it came from. */
 let index = new Map<string, { pack: any; toolName: string }>();
+
+/**
+ * Name, size and mtime of every pack file.
+ *
+ * Installing an adapter and listing tools again has to show the new tools, so
+ * the cache cannot be keyed on nothing. A few stat calls on a few small files
+ * cost less than parsing them, and far less than making the user restart.
+ */
+function signature(dir: string): string {
+  if (!fs.existsSync(dir)) return '';
+  return fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith('.ygs.json'))
+    .sort()
+    .map((name) => {
+      const stat = fs.statSync(path.join(dir, name));
+      return `${name}:${stat.size}:${stat.mtimeMs}`;
+    })
+    .join('|');
+}
 
 /**
  * Reads every pack in the adapters directory.
@@ -34,9 +55,10 @@ let index = new Map<string, { pack: any; toolName: string }>();
  * whole server down. One bad file should not cost the user their other tools.
  */
 export async function loadPacks(force = false): Promise<LoadedPack[]> {
-  if (cache && !force) return cache;
-
   const dir = adaptersDir();
+  const current = signature(dir);
+  if (cache && !force && current === cacheSignature) return cache;
+
   const loaded: LoadedPack[] = [];
   index = new Map();
 
@@ -57,6 +79,7 @@ export async function loadPacks(force = false): Promise<LoadedPack[]> {
   }
 
   cache = loaded;
+  cacheSignature = current;
   return loaded;
 }
 
