@@ -24,13 +24,13 @@ jobs:
   adapters:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: pnpm
@@ -45,9 +45,9 @@ jobs:
       - name: Check every pack
         run: node scripts/adapters.mjs check
 
-      # Only on master. A pull request from a fork must never reach the token.
+      # Never on a pull request. A fork must not reach the token.
       - name: Publish
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         env:
           YGS_PUBLISH_TOKEN: ${{ secrets.YGS_PUBLISH_TOKEN }}
           YGS_REGISTRY_URL: ${{ vars.YGS_REGISTRY_URL }}
