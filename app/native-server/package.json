@@ -1,12 +1,12 @@
 {
-  "name": "mcp-chrome-bridge",
-  "version": "1.0.29",
-  "description": "Chrome Native-Messaging host (Node)",
+  "name": "ygs-bridge",
+  "version": "0.1.0",
+  "description": "Local bridge that lets an MCP client drive your own Chrome profile.",
   "main": "dist/index.js",
   "bin": {
-    "mcp-chrome-bridge": "./dist/cli.js",
-    "chrome-mcp-bridge": "./dist/cli.js",
-    "mcp-chrome-stdio": "./dist/mcp/mcp-server-stdio.js"
+    "ygs": "./dist/cli.js",
+    "ygs-bridge": "./dist/cli.js",
+    "ygs-stdio": "./dist/mcp/mcp-server-stdio.js"
   },
   "scripts": {
     "dev": "nodemon --watch src --ext ts,js,json --ignore dist/ --exec \"npm run build && npm run register:dev\"",
@@ -17,7 +17,7 @@
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "format": "prettier --write 'src/**/*.{js,ts,json}'",
     "register:dev": "node dist/scripts/register-dev.js",
-    "postinstall": "node -e \"require('fs').existsSync('dist/scripts/postinstall.js') ? require('child_process').execFileSync(process.execPath,['dist/scripts/postinstall.js'],{stdio:'inherit'}) : console.log('[mcp-chrome-bridge] skipping postinstall: dist not built yet (source checkout)')\""
+    "postinstall": "node -e \"require('fs').existsSync('dist/scripts/postinstall.js') ? require('child_process').execFileSync(process.execPath,['dist/scripts/postinstall.js'],{stdio:'inherit'}) : console.log('[ygs-bridge] skipping postinstall: dist not built yet (source checkout)')\""
   },
   "files": [
     "dist",
@@ -30,7 +30,10 @@
   "keywords": [
     "mcp",
     "chrome",
-    "browser"
+    "browser",
+    "automation",
+    "native-messaging",
+    "ygs"
   ],
   "author": "hangye",
   "license": "MIT",
@@ -84,5 +87,14 @@
     "*.{json,md}": [
       "prettier --write"
     ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kadajett/yougotserved.git",
+    "directory": "app/native-server"
+  },
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "bugs": {
+    "url": "https://github.com/Kadajett/yougotserved/issues"
   }
 }

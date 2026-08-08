@@ -10,6 +10,7 @@
  */
 
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -20,6 +21,7 @@ export const REGISTRY_TOOL_NAMES = {
   SEARCH: 'ygs_search_adapters',
   INSTALL: 'ygs_install_adapter',
   LIST: 'ygs_list_adapters',
+  RATE: 'ygs_rate_adapter',
 } as const;
 
 /**
@@ -64,6 +66,20 @@ export const REGISTRY_TOOLS: Tool[] = [
     description: 'List adapters installed on this machine.',
     inputSchema: { type: 'object', properties: {} },
   },
+  {
+    name: REGISTRY_TOOL_NAMES.RATE,
+    description:
+      'Rate an installed adapter from 1 to 5, so others can see what works. One vote for each ' +
+      'machine. Rating again replaces the earlier vote. Ask the user for the score.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: 'Adapter id, e.g. "linkedin"' },
+        score: { type: 'integer', description: '1 to 5' },
+      },
+      required: ['id', 'score'],
+    },
+  },
 ];
 
 export function isRegistryTool(name: string): boolean {
@@ -94,6 +110,8 @@ export async function handleRegistryTool(name: string, args: any): Promise<CallT
         return await install(args?.id, args?.version, args?.confirm === true);
       case REGISTRY_TOOL_NAMES.LIST:
         return listInstalled();
+      case REGISTRY_TOOL_NAMES.RATE:
+        return await rate(args?.id, args?.score);
       default:
         return text(`Unknown registry tool: ${name}`, true);
     }
@@ -189,6 +207,47 @@ async function install(
     audit: describePack(pack),
     next: `Restart your MCP client, or run: ygs serve --adapter ${pack.id}`,
   });
+}
+
+/**
+ * Sends a rating.
+ *
+ * The install id is a random value written once and kept on this machine. The
+ * registry stores only a salted hash of it, so it can tell two votes apart
+ * without learning which machine sent either one.
+ */
+async function rate(id: string, score: number): Promise<CallToolResult> {
+  if (!id) return text('An adapter id is required.', true);
+  if (!Number.isInteger(score) || score < 1 || score > 5) {
+    return text('Score must be a whole number from 1 to 5.', true);
+  }
+
+  const response = await fetch(`${registryUrl()}/api/adapters/${encodeURIComponent(id)}/rate`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ score, installId: installId() }),
+  });
+
+  const body = (await response.json()) as any;
+  if (!response.ok)
+    return text(body?.error?.message ?? `Registry returned ${response.status}.`, true);
+
+  return text({ rated: `${id} ${score}/5`, average: body.rating, votes: body.votes });
+}
+
+/** Random, written once, never leaves this machine except as a salted hash. */
+function installId(): string {
+  const file = path.join(adaptersDir(), '.install-id');
+  try {
+    const existing = fs.readFileSync(file, 'utf8').trim();
+    if (existing.length >= 8) return existing;
+  } catch {
+    // First run. Fall through and make one.
+  }
+  const fresh = crypto.randomBytes(16).toString('hex');
+  fs.mkdirSync(adaptersDir(), { recursive: true });
+  fs.writeFileSync(file, fresh + '\n', { mode: 0o600 });
+  return fresh;
 }
 
 function listInstalled(): CallToolResult {

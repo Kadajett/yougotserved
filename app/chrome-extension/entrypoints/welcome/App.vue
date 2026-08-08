@@ -5,9 +5,9 @@ import { LINKS, NATIVE_HOST } from '@/common/constants';
 import '../sidepanel/styles/agent-chat.css';
 
 const COMMANDS = {
-  npmInstall: 'npm install -g @yougotserved/bridge',
-  pnpmInstall: 'pnpm add -g @yougotserved/bridge',
-  yarnInstall: 'yarn global add @yougotserved/bridge',
+  npmInstall: 'npm install -g ygs-bridge',
+  pnpmInstall: 'pnpm add -g ygs-bridge',
+  yarnInstall: 'yarn global add ygs-bridge',
   mcpUrl: 'http://127.0.0.1:' + NATIVE_HOST.DEFAULT_PORT + '/mcp',
   doctor: 'ygs doctor',
   fix: 'ygs doctor --fix',
@@ -106,7 +106,7 @@ async function openDocs(): Promise<void> {
         <div class="max-w-3xl mx-auto space-y-6">
           <section class="welcome-card welcome-card--primary p-6">
             <h2 class="welcome-title text-xl font-medium">
-              Install <code class="welcome-code">mcp-chrome-bridge</code>
+              Install <code class="welcome-code">ygs-bridge</code>
             </h2>
             <p class="welcome-muted text-sm mt-2">
               The Chrome extension uses this local bridge to expose MCP tools to your client.

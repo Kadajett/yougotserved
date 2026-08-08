@@ -50,7 +50,7 @@ The extension welcome page tells users to install this package. Publish it first
 or the install screen points at nothing.
 
 ```bash
-pnpm --filter @yougotserved/bridge build && npm publish --access public
+pnpm --filter ygs-bridge build && npm publish
 ```
 
 ## Step 3: submit the extension

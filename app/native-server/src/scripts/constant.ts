@@ -1,4 +1,4 @@
-export const COMMAND_NAME = 'mcp-chrome-bridge';
+export const COMMAND_NAME = 'ygs';
 
 /**
  * Extension ID the native host will accept connections from.

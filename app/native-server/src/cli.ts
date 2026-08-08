@@ -10,14 +10,15 @@ import {
   ensureExecutionPermissions,
   writeNodePathFile,
 } from './scripts/utils';
-import { DEFAULT_EXTENSION_ID, resolveExtensionId } from './scripts/constant';
+import { COMMAND_NAME, DEFAULT_EXTENSION_ID, resolveExtensionId } from './scripts/constant';
 import { BrowserType, parseBrowserType, detectInstalledBrowsers } from './scripts/browser-config';
 import { runDoctor } from './scripts/doctor';
 import { runReport } from './scripts/report';
 
 program
+  .name(COMMAND_NAME)
   .version(require('../package.json').version)
-  .description('Mcp Chrome Bridge - Local service for communicating with Chrome extension');
+  .description('youGotServed bridge. Connects an MCP client to your own Chrome profile.');
 
 // Register Native Messaging host
 program
@@ -125,8 +126,8 @@ program
               'yellow',
             ),
           );
-          console.log(colorText('  1. sudo mcp-chrome-bridge register', 'yellow'));
-          console.log(colorText('  2. mcp-chrome-bridge register --system', 'yellow'));
+          console.log(colorText('  1. sudo ygs register', 'yellow'));
+          console.log(colorText('  2. ygs register --system', 'yellow'));
           process.exit(1);
         }
       }

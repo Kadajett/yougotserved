@@ -16,7 +16,7 @@ The bridge speaks to the extension over native messaging. Run the doctor command
 after you install, because it checks the manifest paths and the port.
 
 ```bash
-npm install -g @yougotserved/bridge
+npm install -g ygs-bridge
 ygs doctor
 ```
 
