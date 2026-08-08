@@ -52,3 +52,8 @@ jobs:
       # Cheap, and it keeps a broken pack from reaching the publish workflow.
       - name: Check adapter packs
         run: node scripts/adapters.mjs check
+
+      # npm cannot resolve `workspace:`. Shipping one makes a package that
+      # installs for nobody, and it works locally, so only this catches it.
+      - name: Bridge has no workspace dependencies
+        run: node scripts/check-publishable.mjs app/native-server

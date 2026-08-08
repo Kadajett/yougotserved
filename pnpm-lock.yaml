@@ -153,9 +153,6 @@ importers:
       '@types/node-fetch':
         specifier: '2'
         version: 2.6.13
-      '@yougotserved/adapter-sdk':
-        specifier: workspace:*
-        version: link:../../packages/adapter-sdk
       better-sqlite3:
         specifier: ^11.6.0
         version: 11.10.0
@@ -165,9 +162,6 @@ importers:
       chrome-devtools-frontend:
         specifier: ^1.0.1299282
         version: 1.0.1675430
-      chrome-mcp-shared:
-        specifier: workspace:*
-        version: link:../../packages/shared
       commander:
         specifier: ^13.1.0
         version: 13.1.0
@@ -211,6 +205,12 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^8.31.1
         version: 8.66.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      '@yougotserved/adapter-sdk':
+        specifier: workspace:*
+        version: link:../../packages/adapter-sdk
+      chrome-mcp-shared:
+        specifier: workspace:*
+        version: link:../../packages/shared
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3

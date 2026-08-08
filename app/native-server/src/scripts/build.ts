@@ -17,9 +17,51 @@ fs.mkdirSync(distDir, { recursive: true });
 fs.mkdirSync(path.join(distDir, 'logs'), { recursive: true }); // 创建logs目录
 console.log('Created/verified dist and dist/logs');
 
-// 编译TypeScript
+// Compile TypeScript
 console.log('Compiling TypeScript...');
 execSync('tsc', { stdio: 'inherit' });
+
+/*
+ * Inline the workspace packages.
+ *
+ * `chrome-mcp-shared` and the adapter SDK live in this repo and are not on
+ * npm. tsc leaves them as ordinary requires, so a published tarball carried
+ * `workspace:*` dependencies that npm cannot resolve, and the package would
+ * not install for anyone. esbuild folds those two into the output and leaves
+ * every real dependency external, including the native ones.
+ */
+console.log('Bundling workspace packages...');
+{
+  const esbuild = require('esbuild');
+  const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8'));
+  const inline = ['chrome-mcp-shared', '@yougotserved/adapter-sdk'];
+  const external = [
+    ...Object.keys(pkg.dependencies || {}),
+    ...Object.keys(pkg.peerDependencies || {}),
+  ].filter((name: string) => !inline.includes(name));
+
+  const distDir = path.join(__dirname, '..', '..', 'dist');
+  const entries = ['cli.js', 'index.js', path.join('mcp', 'mcp-server-stdio.js')];
+
+  for (const entry of entries) {
+    const file = path.join(distDir, entry);
+    if (!fs.existsSync(file)) continue;
+    // esbuild cannot write over the file it is reading, so bundle beside it.
+    const staged = file + '.bundled';
+    esbuild.buildSync({
+      entryPoints: [file],
+      outfile: staged,
+      bundle: true,
+      platform: 'node',
+      target: 'node20',
+      format: 'cjs',
+      external,
+      logLevel: 'warning',
+    });
+    fs.renameSync(staged, file);
+    console.log(`  bundled ${entry}`);
+  }
+}
 
 // 复制配置文件
 console.log('Copying config files...');
