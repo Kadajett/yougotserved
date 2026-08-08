@@ -85,14 +85,18 @@ machine that had the workspace. Only a clean install shows this.
 npm pack && cd $(mktemp -d) && npm init -y && npm install <path>/ygs-bridge-*.tgz
 ```
 
-## Blocker: the artwork is not ours
+## Artwork
 
-The icon is the upstream pixel owl, in the orange this fork moved away from.
-Submitting it puts another project's mark on this listing. Replace the five
-files before the first submission.
+The mark is lowercase "ygs" in Lato Black, red on the tan ground, which matches
+the welcome screen. The upstream pixel owl is gone. Sources live in
+`app/chrome-extension/assets`, and the set rebuilds from them.
+
+The 16 pixel size uses a second cut with no corner radius and almost no margin,
+because rounded corners cost real letter area at that size. Three lowercase
+letters still read as a mark rather than as text at 16 pixels.
 
 ```bash
-python3 scripts/make-icons.py <new-artwork.png>
+python3 scripts/make-icons.py app/chrome-extension/assets/icon-source.png
 ```
 
 ## Step 3: submit the extension

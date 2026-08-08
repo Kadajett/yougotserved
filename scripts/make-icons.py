@@ -25,13 +25,23 @@ def main() -> int:
 
     source = pathlib.Path(sys.argv[1])
     image = Image.open(source).convert('RGBA')
+
+    # 16 and 32 get their own cut when one is supplied, named <source>-small.
+    # Rounded corners and margin cost real letter area at 16 pixels, so the
+    # small file drops both. Chrome allows different art for each size.
+    small_path = source.with_name(source.stem + '-small' + source.suffix)
+    small = Image.open(small_path).convert('RGBA') if small_path.exists() else None
+    if small:
+        print(f'small sizes from {small_path.name}')
+
     OUT.mkdir(parents=True, exist_ok=True)
 
     total = 0
     for size in SIZES:
         # LANCZOS, because the small sizes are a heavy reduction and nearest
         # neighbour drops whole features of the drawing at 16 pixels.
-        resized = image.resize((size, size), Image.LANCZOS)
+        art = small if (small and size <= 32) else image
+        resized = art.resize((size, size), Image.LANCZOS)
         target = OUT / f'{size}.png'
         resized.save(target, 'PNG', optimize=True)
         written = target.stat().st_size
