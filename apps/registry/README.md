@@ -1,6 +1,6 @@
 # Registry
 
-Live at <https://yougotserved-registry.jeremy-ryan-stover.workers.dev>.
+Live at <https://registry.yougotserved.dev>.
 
 Stores and serves adapter packs. The Worker never runs adapter code, because a
 pack is JSON. That keeps the extension inside the Chrome Web Store rule against

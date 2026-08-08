@@ -19,7 +19,7 @@ const sdk = path.join(root, 'packages/adapter-sdk/dist/index.mjs');
 const { validatePack, packDigest, describePack } = await import(sdk);
 
 const mode = process.argv[2] ?? 'check';
-const registry = process.env.YGS_REGISTRY_URL ?? 'https://yougotserved-registry.jeremy-ryan-stover.workers.dev';
+const registry = process.env.YGS_REGISTRY_URL ?? 'https://registry.yougotserved.dev';
 const token = process.env.YGS_PUBLISH_TOKEN;
 
 const files = fs.existsSync(dir)

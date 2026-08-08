@@ -1,6 +1,6 @@
 {
   "name": "ygs-bridge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local bridge that lets an MCP client drive your own Chrome profile.",
   "main": "dist/index.js",
   "bin": {
