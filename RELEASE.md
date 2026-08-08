@@ -11,9 +11,8 @@ The manifest asked for 16 permissions. It now asks for 13. `history`,
 them. Those tools read the whole browsing history and the whole bookmark tree,
 which no site adapter needs.
 
-One item still needs work. `debugger` with `<all_urls>` is the pair a reviewer
-questions first, so the listing must justify both in plain words. `PRIVACY.md`
-carries that wording and the store listing can reuse it.
+`debugger` with `<all_urls>` is the pair a reviewer questions first, so the
+listing justifies both in plain words. `PRIVACY.md` carries that wording.
 
 | Permission              | Used by                      | State                                  |
 | ----------------------- | ---------------------------- | -------------------------------------- |
@@ -23,6 +22,14 @@ carries that wording and the store listing can reuse it.
 | `history`               | Removed                      | Done                                   |
 | `bookmarks`             | Removed                      | Done                                   |
 | `declarativeNetRequest` | Nothing                      | Done                                   |
+
+### Why <all_urls> stays for now
+
+Per-origin access was considered and deferred to after the first review.
+`chrome.permissions.request` needs a user gesture, so an agent can never grant
+its own access and a person must click for each adapter. If the review objects,
+the fix is optional host permissions, a grant button in the popup, and content
+scripts registered after each grant.
 
 ### Why webRequest stays
 
@@ -76,6 +83,16 @@ machine that had the workspace. Only a clean install shows this.
 
 ```bash
 npm pack && cd $(mktemp -d) && npm init -y && npm install <path>/ygs-bridge-*.tgz
+```
+
+## Blocker: the artwork is not ours
+
+The icon is the upstream pixel owl, in the orange this fork moved away from.
+Submitting it puts another project's mark on this listing. Replace the five
+files before the first submission.
+
+```bash
+python3 scripts/make-icons.py <new-artwork.png>
 ```
 
 ## Step 3: submit the extension

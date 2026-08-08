@@ -7,11 +7,11 @@
   "scripts": {
     "build:shared": "pnpm --filter chrome-mcp-shared build",
     "build:native": "pnpm --filter ygs-bridge build",
-    "build:extension": "pnpm --filter chrome-mcp-server build",
+    "build:extension": "pnpm --filter yougotserved-extension build",
     "build": "pnpm -r build",
     "dev:shared": "pnpm --filter chrome-mcp-shared dev",
     "dev:native": "pnpm --filter ygs-bridge dev",
-    "dev:extension": "pnpm --filter chrome-mcp-server dev",
+    "dev:extension": "pnpm --filter yougotserved-extension dev",
     "dev": "pnpm --filter chrome-mcp-shared build && pnpm -r --parallel dev",
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",

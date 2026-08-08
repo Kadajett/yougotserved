@@ -39,10 +39,10 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm --filter @yougotserved/adapter-sdk test
-      - run: pnpm --filter chrome-mcp-server test
+      - run: pnpm --filter yougotserved-extension test
 
       - run: pnpm --filter ygs-bridge build
-      - run: pnpm --filter chrome-mcp-server build
+      - run: pnpm --filter yougotserved-extension build
 
       # The extension injects the SDK extract runner into the page, which drops
       # its closure. Only the built bundle can show whether that still holds.
