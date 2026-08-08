@@ -91,7 +91,7 @@ export async function runSteps(
       } else if ('upload' in step) {
         await runUpload(page, step.upload, options.params, render, renderWait);
       } else if ('extract' in step) {
-        const value = (await page.extract(step.extract as never)) as
+        const value = (await page.extract(resolveCounts(step.extract, render) as never)) as
           ExtractedRecord | ExtractedRecord[];
         last = value;
         if (step.as) named[step.as] = value;
@@ -163,6 +163,27 @@ async function runUpload(
  * installer's disk, which is the one thing an upload capability must never
  * allow. The host still classifies whatever path comes back.
  */
+/**
+ * Turns `limit: "{{limit}}"` into a number, using the call's arguments.
+ *
+ * Only `limit` and `offset` are resolved. Selectors stay verbatim, so a caller
+ * can never inject one through a parameter.
+ */
+function resolveCounts(spec: unknown, render: (value: string) => string): unknown {
+  const source = spec as { limit?: unknown; offset?: unknown };
+  if (typeof source?.limit !== 'string' && typeof source?.offset !== 'string') return spec;
+
+  const resolved = { ...(source as Record<string, unknown>) };
+  for (const key of ['limit', 'offset'] as const) {
+    const raw = resolved[key];
+    if (typeof raw !== 'string') continue;
+    const parsed = Number(render(raw).trim());
+    if (Number.isFinite(parsed)) resolved[key] = Math.trunc(parsed);
+    else delete resolved[key];
+  }
+  return resolved;
+}
+
 function resolveFileParam(template: Template, params: Record<string, unknown>): FileRef {
   const match = /^\s*\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}\s*$/.exec(template);
   if (!match?.[1]) {

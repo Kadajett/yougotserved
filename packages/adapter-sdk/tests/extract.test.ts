@@ -239,3 +239,79 @@ describe('runExtractSpec is self-contained', () => {
     expect(() => rebuilt({ fields: { bad: '::::' } }, root)).toThrow(/is not valid CSS/);
   });
 });
+
+describe('fields scoped to the next sibling', () => {
+  // Hacker News splits one story across two rows: the title sits in tr.athing
+  // and the score in the row after it. Without `from: "next"` a record can hold
+  // one or the other, never both.
+  const PAIRED = `
+    <table><tbody>
+      <tr class="athing" id="1"><td class="title"><span class="titleline"><a href="/a">Story A</a></span></td></tr>
+      <tr><td class="subtext"><span class="score">399 points</span> by <a class="hnuser">ada</a></td></tr>
+      <tr class="athing" id="2"><td class="title"><span class="titleline"><a href="/b">Story B</a></span></td></tr>
+      <tr><td class="subtext"><span class="score">12 points</span> by <a class="hnuser">grace</a></td></tr>
+    </tbody></table>`;
+
+  it('reads a field out of the row after the record root', () => {
+    const root = mount(PAIRED);
+    expect(
+      runExtractSpec(
+        {
+          each: 'tr.athing',
+          fields: {
+            title: '.titleline > a',
+            score: { selector: '.score', number: true, from: 'next' },
+            by: { selector: '.hnuser', from: 'next' },
+          },
+        },
+        root,
+      ),
+    ).toEqual([
+      { title: 'Story A', score: 399, by: 'ada' },
+      { title: 'Story B', score: 12, by: 'grace' },
+    ]);
+  });
+
+  it('falls back rather than throwing when there is no sibling', () => {
+    const root = mount('<div><p class="only">x</p></div>');
+    expect(
+      runExtractSpec(
+        { each: '.only', fields: { after: { selector: '.score', from: 'next', fallback: null } } },
+        root,
+      ),
+    ).toEqual([{ after: null }]);
+  });
+
+  it('takes the sibling itself when no selector is given', () => {
+    const root = mount(PAIRED);
+    const records = runExtractSpec(
+      { each: 'tr.athing', limit: 1, fields: { row: { from: 'next' } } },
+      root,
+    ) as Record<string, unknown>[];
+    expect(String(records[0]?.row)).toContain('399 points');
+  });
+
+  it('rejects a from value the interpreter does not have', () => {
+    expect(() =>
+      validateExtractSpec({ fields: { x: { selector: 'a', from: 'previous' as never } } }),
+    ).toThrow(/must be "self" or "next"/);
+  });
+});
+
+describe('counts that arrive as strings', () => {
+  // The host resolves `"{{limit}}"` before the spec is sent, but the runner is
+  // also injected straight into a page, so it re-checks rather than trusting.
+  it('reads a numeric string as a count', () => {
+    const root = mount(RESULTS);
+    expect(
+      runExtractSpec({ each: 'li.result', limit: '1', fields: { name: '.link' } }, root),
+    ).toEqual([{ name: 'Ada Lovelace' }]);
+  });
+
+  it('falls back to the cap when a count is not readable as a number', () => {
+    const root = mount(RESULTS);
+    expect(
+      runExtractSpec({ each: 'li.result', limit: '{{limit}}', fields: { name: '.link' } }, root),
+    ).toHaveLength(2);
+  });
+});

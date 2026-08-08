@@ -51,6 +51,15 @@ export interface FieldSpecObject {
   regexGroup?: number;
   /** Used when the selector matches nothing. */
   fallback?: string | number | boolean | null;
+  /**
+   * Where the selector is resolved.
+   *
+   * `next` resolves against the record root's next sibling element. Table
+   * layouts routinely split one logical row across two `tr` elements, and
+   * Hacker News is the standard example: the title is in `tr.athing` and the
+   * score sits in the row after it.
+   */
+  from?: 'self' | 'next';
   /** Nested record, scoped to this field's element. */
   fields?: Record<string, FieldSpec>;
 }
@@ -61,10 +70,15 @@ export interface ExtractSpec {
    * extract a single object from the root.
    */
   each?: string;
-  /** Stop after this many records. Guards against a 500-row table. */
-  limit?: number;
+  /**
+   * Stop after this many records. Guards against a 500-row table.
+   *
+   * A pack may write a template such as `"{{limit}}"`, which the host resolves
+   * from the call's arguments before the spec reaches the page.
+   */
+  limit?: number | string;
   /** Skip this many records first, for cursor-style paging. */
-  offset?: number;
+  offset?: number | string;
   fields: Record<string, FieldSpec>;
 }
 
@@ -120,8 +134,13 @@ export function runExtractSpec(
   // 1000 is written twice rather than held in a named constant. The extension
   // bundler hoists a function-local `const` to module scope, which breaks the
   // injected copy. `scripts/check-injected-runner.js` proves it stays fixed.
-  const offset = Math.max(0, spec.offset ?? 0);
-  const limit = Math.min(spec.limit ?? 1000, 1000);
+  //
+  // A pack may state a count as a template, such as "{{limit}}", which the host
+  // resolves from the call's arguments. `count` re-checks the result here, so a
+  // spec that arrives with a count this function cannot read falls back to the
+  // cap rather than extracting nothing.
+  const offset = Math.max(0, count(spec.offset) ?? 0);
+  const limit = Math.min(count(spec.limit) ?? 1000, 1000);
   const matches = Array.from(scope.querySelectorAll(spec.each));
   const records: ExtractedRecord[] = [];
 
@@ -162,6 +181,23 @@ export function runExtractSpec(
   }
 
   function select(field: FieldSpecObject, scope: Queryable): Element[] {
+    if (field.from === 'next') {
+      const sibling = (scope as { nextElementSibling?: Element | null }).nextElementSibling;
+      if (!sibling) return [];
+      if (!field.selector) return [sibling];
+      try {
+        return field.all
+          ? Array.from(sibling.querySelectorAll(field.selector))
+          : elementOrNone(sibling.querySelector(field.selector));
+      } catch (error) {
+        fail(
+          `Selector ${JSON.stringify(field.selector)} is not valid CSS: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+
     if (!field.selector) {
       // No selector means the scope itself. A record root is an Element; the
       // document is not, and has no fields of its own worth reading.
@@ -178,6 +214,13 @@ export function runExtractSpec(
         }`,
       );
     }
+  }
+
+  /** A count as a whole number, or null when the value is not readable as one. */
+  function count(value: number | string | undefined): number | null {
+    const parsed = typeof value === 'string' ? Number(value.trim()) : value;
+    if (typeof parsed !== 'number' || !Number.isFinite(parsed)) return null;
+    return Math.trunc(parsed);
   }
 
   function elementOrNone(element: Element | null): Element[] {
@@ -258,6 +301,11 @@ export function runExtractSpec(
  * surfaces at load time with a filename attached rather than as an empty
  * result three calls into an agent's run.
  */
+/** A single `{{name}}` and nothing else. No expressions, by design. */
+function isCountTemplate(value: unknown): boolean {
+  return typeof value === 'string' && /^\s*\{\{\s*[a-zA-Z_][a-zA-Z0-9_]*\s*\}\}\s*$/.test(value);
+}
+
 export function validateExtractSpec(spec: ExtractSpec, path = 'extract'): void {
   if (!spec || typeof spec !== 'object') throw new ExtractError(`${path} must be an object.`);
   if (!spec.fields || typeof spec.fields !== 'object' || Array.isArray(spec.fields)) {
@@ -266,11 +314,19 @@ export function validateExtractSpec(spec: ExtractSpec, path = 'extract'): void {
   if (Object.keys(spec.fields).length === 0) {
     throw new ExtractError(`${path}.fields is empty; there is nothing to extract.`);
   }
-  if (spec.limit !== undefined && (!Number.isInteger(spec.limit) || spec.limit < 1)) {
-    throw new ExtractError(`${path}.limit must be a positive whole number.`);
+  // A published pack states `limit` as a template, such as "{{limit}}", because
+  // the value arrives with the call. The host resolves it before the spec ever
+  // reaches the page, so a template is valid here and a number is required
+  // everywhere else.
+  if (!isCountTemplate(spec.limit) && spec.limit !== undefined) {
+    if (!Number.isInteger(spec.limit) || (spec.limit as number) < 1) {
+      throw new ExtractError(`${path}.limit must be a positive whole number.`);
+    }
   }
-  if (spec.offset !== undefined && (!Number.isInteger(spec.offset) || spec.offset < 0)) {
-    throw new ExtractError(`${path}.offset must be zero or a positive whole number.`);
+  if (!isCountTemplate(spec.offset) && spec.offset !== undefined) {
+    if (!Number.isInteger(spec.offset) || (spec.offset as number) < 0) {
+      throw new ExtractError(`${path}.offset must be zero or a positive whole number.`);
+    }
   }
   for (const [name, field] of Object.entries(spec.fields)) {
     validateField(field, `${path}.fields.${name}`);
@@ -287,6 +343,9 @@ function validateField(field: FieldSpec, path: string): void {
   }
   if (field.attr && field.prop) {
     throw new ExtractError(`${path} sets both "attr" and "prop"; pick one.`);
+  }
+  if (field.from !== undefined && field.from !== 'self' && field.from !== 'next') {
+    throw new ExtractError(`${path}.from must be "self" or "next".`);
   }
   if (field.regex) {
     try {

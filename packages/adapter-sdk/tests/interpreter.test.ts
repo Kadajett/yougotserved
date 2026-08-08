@@ -219,3 +219,72 @@ describe('runSteps', () => {
     expect(page.goto).not.toHaveBeenCalled();
   });
 });
+
+describe('templated counts in an extract step', () => {
+  it('resolves limit from the call arguments before the spec is sent', async () => {
+    const seen: unknown[] = [];
+    const page = {
+      signal: new AbortController().signal,
+      url: 'https://news.ycombinator.com/news',
+      extract: async (spec: unknown) => {
+        seen.push(spec);
+        return [];
+      },
+    };
+
+    await runSteps(
+      page as never,
+      [{ extract: { each: 'tr', limit: '{{limit}}', fields: { t: 'a' } } }] as never,
+      {
+        params: { limit: 5 } as never,
+        trusted: false,
+      },
+    );
+
+    expect((seen[0] as { limit: unknown }).limit).toBe(5);
+  });
+
+  it('fails loudly when the template names a parameter that does not exist', async () => {
+    // An unknown name is an authoring mistake in the pack, so it should stop
+    // the tool rather than quietly extract a different number of records.
+    const page = {
+      signal: new AbortController().signal,
+      url: 'https://example.com',
+      extract: async () => [],
+    };
+
+    await expect(
+      runSteps(
+        page as never,
+        [{ extract: { each: 'tr', limit: '{{nope}}', fields: { t: 'a' } } }] as never,
+        {
+          params: {} as never,
+          trusted: false,
+        },
+      ),
+    ).rejects.toThrow(/not a parameter/);
+  });
+
+  it('drops a count that resolves to something that is not a number', async () => {
+    const seen: unknown[] = [];
+    const page = {
+      signal: new AbortController().signal,
+      url: 'https://example.com',
+      extract: async (spec: unknown) => {
+        seen.push(spec);
+        return [];
+      },
+    };
+
+    await runSteps(
+      page as never,
+      [{ extract: { each: 'tr', limit: '{{limit}}', fields: { t: 'a' } } }] as never,
+      {
+        params: { limit: 'lots' } as never,
+        trusted: false,
+      },
+    );
+
+    expect('limit' in (seen[0] as object)).toBe(false);
+  });
+});
