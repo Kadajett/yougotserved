@@ -1,88 +1,67 @@
-# Writing an adapter
+# Write an adapter
 
-The short version: **you do not write an adapter by hand, and you do not write it
-from scratch. You point a coding agent at the live page once, it spends the
-tokens on discovery a single time, and it writes a file that costs almost
-nothing forever after.**
+You do not write an adapter by hand. You point a coding agent at the live page
+once. It spends the tokens on discovery a single time, then writes a file that
+costs almost nothing after that.
 
-That trade is the whole point. The generic browser toolset costs about 8,300
-tokens of schema in every session, plus a page read and a locate call per step.
-A four-tool adapter costs about 300 tokens of schema and one call per task.
-
----
+The generic browser toolset costs about 8,300 tokens of schema in every session.
+It also needs a page read and a locate call for each step. A four-tool adapter
+costs about 300 tokens of schema and one call for each task.
 
 ## The loop
 
 ### 1. Scaffold
 
+The command writes `~/.yougotserved/adapters/linkedin.adapter.ts`. The file
+holds the imports, the origin fence, and one empty tool.
+
 ```bash
 ygs adapter init linkedin --origin https://www.linkedin.com
 ```
 
-Writes `~/.yougotserved/adapters/linkedin.adapter.ts` with the imports, the
-origin fence, and one empty tool.
+### 2. Discover, one time
 
-### 2. Discover, once
+Open the page in an agent session that has the generic tools. Ask for the
+repeating row selector and the field selectors inside it. Budget for this step:
+a first pass over LinkedIn used about 50 calls and 45,000 to 55,000 tokens. The
+payback is about six sessions against the generic schema.
 
-This is the expensive step, and you pay it once per site. In an agent session
-with the generic tools connected:
-
-> Open https://www.linkedin.com/search/results/people/?keywords=rust
-> Use `chrome_read_page` to find the repeating result row and the fields inside
-> it, then confirm each selector with a live DOM query. Report the selectors,
-> not the content.
-
-**Budget for it.** A first pass over LinkedIn — sign-in check, people search, DOM
-inspection, two profile layouts — measured about **50 tool calls and 45–55k
-tokens**, most of it in three large accessibility-tree reads. That is real money,
-and the payback is roughly six sessions against the 8.5k-token schema the generic
-toolset costs every time you connect. Do not repeat it casually; when one
-selector breaks, re-derive that one selector.
-
-`chrome_get_interactive_elements` would be the cheaper instrument here and a
-handler for it exists, but it is not in the exposed tool list, so `chrome_read_page`
-is what you have. A discovery tool that loads only while authoring is the obvious
-fix and is not built yet.
-
-You want back a record root and a handful of field selectors:
-
-```
-root:       main [role="list"] [role="listitem"]
-name:       a[href*="/in/"] span[aria-hidden="true"]
-profileUrl: a[href*="/in/"]   (read as prop: 'href')
+```text
+Open https://www.linkedin.com/search/results/people/?keywords=rust
+Use chrome_read_page to find the repeating result row and the fields
+inside it. Confirm each selector with a live DOM query.
+Report the selectors, not the content.
 ```
 
-Prefer selectors in this order. Sites rewrite class names constantly; they
-rarely rewrite the hooks their own code depends on.
+### 3. Prefer stable selectors
 
-| Prefer         | Example                                                           | Why                                                         |
-| -------------- | ----------------------------------------------------------------- | ----------------------------------------------------------- |
-| Data hooks     | `[data-view-name]`, `[data-urn]`, `[componentkey]`                | The site's own code depends on these                        |
-| ARIA and roles | `[aria-label*="Easy Apply"]`, `[role="list"] > [role="listitem"]` | Tied to behaviour, and accessibility work keeps them stable |
-| Structure      | `main h2`, `#experience ~ ul li`                                  | Changes only when the page is redesigned                    |
-| Classes        | `.entity-result__primary-subtitle`                                | Churns. Fine as a fallback, never as the only hook          |
+Sites rewrite class names often. They rarely rewrite the hooks their own code
+depends on. Use the order below, but check what the page actually has. A
+verified pass over LinkedIn found no `data-view-name` hooks on the search rows.
 
-The order is a prior, not a promise. A verified pass over LinkedIn search
-results in early 2026 found **no usable `data-view-name` or `data-urn` hooks on
-the rows at all** — ARIA list roles were the strongest boundary available, and
-profile names rendered as `h2`, not `h1`. Check what the page actually has;
-never assume a tier exists because it usually does.
+| Prefer         | Example                             | Why                                                  |
+| -------------- | ----------------------------------- | ---------------------------------------------------- |
+| Data hooks     | `[data-view-name]`, `[data-urn]`    | The site's own code depends on these                 |
+| ARIA and roles | `[role="list"] > [role="listitem"]` | Tied to behaviour, kept stable by accessibility work |
+| Structure      | `main h2`, `#experience ~ ul li`    | Changes only on a redesign                           |
+| Classes        | `.entity-result__primary-subtitle`  | Churns. Use as a fallback only                       |
 
-Give a field two chances when you are unsure — `.a, [class*="b"]` is a valid
-CSS list and costs nothing.
+### 4. Write the tool
 
-### 3. Write the tool
+Wrap each tool in `defineTool`. Inside a plain object literal, TypeScript cannot
+infer one property from a sibling. Without the wrapper, `args` widens to `any`
+and a typo compiles.
 
 ```ts
 search_people: defineTool({
   description: 'Search LinkedIn for people.',
-  returns: 'name, headline, location and profile URL for each result',
+  returns: 'name, headline and profile URL for each result',
   params: {
     query: p.string('What to search for'),
     limit: p.integer('How many results').default(10).max(50),
   },
   handler: async (page, args) => {
-    await page.goto(`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(args.query)}`, {
+    await page.goto(searchUrl(args.query), {
       until: { selector: 'main [role="list"] [role="listitem"]' },
     });
     return page.extract({
@@ -97,103 +76,99 @@ search_people: defineTool({
 }),
 ```
 
-`defineTool` is not decoration: inside a plain object literal TypeScript cannot
-infer one property from a sibling, so `args.query` widens to `any` and a typo
-compiles. Wrapped, `args` is typed from `params`.
+### 5. Run it
 
-### 4. Run it
+The command loads the adapter, opens a tab, and prints the result. It also
+prints the token cost. Iterate here, because the loop takes seconds instead of a
+client restart.
 
 ```bash
 ygs adapter test linkedin search_people --query "rust engineer"
 ```
 
-Loads the adapter, opens a tab, runs the handler, prints the result and what it
-would cost an agent in tokens. Iterate here, not through your MCP client — the
-loop is seconds instead of a restart.
+### 6. Serve it
 
-### 5. Serve it
+Tools arrive as `search_people` under a server named `linkedin`. If you serve
+several adapters at once, the host adds a prefix: `linkedin_search_people`.
 
 ```bash
 ygs serve --adapter linkedin
 ```
 
-Tools arrive as `search_people`, `get_profile`, … under a server named
-`linkedin`. Serving several adapters at once prefixes them instead:
-`linkedin_search_people`.
+## Two tiers
 
----
+A tool written with `defineTool` holds JavaScript. It runs on your machine only,
+and you cannot publish it. A tool written with `defineSteps` holds a step list
+that serializes to JSON.
+
+`buildPack` compiles an adapter into a pack. It packs the step tools, skips each
+JavaScript tool, and names the ones it skipped.
+
+```ts
+search_people: defineSteps({
+  params: { query: p.string('Search terms') },
+  steps: [
+    { goto: 'https://www.linkedin.com/search/results/people/?keywords={{query|url}}',
+      until: { selector: 'main [role="list"]' } },
+    { assert: { selector: 'main [role="listitem"]', code: 'not_authenticated',
+                message: 'LinkedIn showed the signed-out page.' } },
+    { extract: { each: 'main [role="listitem"]', fields: { name: 'a[href*="/in/"] span' } } },
+  ],
+}),
+```
 
 ## Rules that keep an adapter cheap
 
-**Return data, not pages.** `page.readPage()` exists and costs thousands of
-tokens. `page.extract()` returns the six fields you asked for. If a tool ever
-calls `readPage` in its normal path, it is not earning its keep.
+Return data, not pages. `page.readPage()` costs thousands of tokens, and
+`page.extract()` returns only the fields you ask for. A tool that calls
+`readPage` in its normal path does not earn its keep.
 
-**Summarise.** `ok(people, { summary: '12 people, showing 1-10' })` lets an
-agent decide what to do without reading the payload.
+Give each list a `limit` cap. Add a `summary` so an agent can act without
+reading the payload. Fail with a code, because an agent retries a generic error,
+and a retry is wrong for two of the three common failures.
 
-**Fail with a code.** `not_authenticated` needs the user; `selector_missing`
-needs this file edited; `rate_limited` needs a wait. An agent that gets
-`isError: true` and a sentence of English will retry, and retrying is wrong for
-two of those three.
+- `not_authenticated` needs the user to sign in
+- `selector_missing` needs the adapter file edited
+- `rate_limited` needs a wait
 
-**Say what it costs.** A tool with `limit` capped at 50 cannot surprise anyone.
-An uncapped one can return a thousand rows into a context window.
+## Security
 
----
+An adapter runs against a browser that holds your real cookies. The SDK assumes
+an adapter can be hostile. It constrains the adapter with data, not with trust.
 
-## Security, briefly
+Read the `origins`, `capabilities` and `uploads` fields before you install an
+adapter. Those three lines state everything the adapter can do.
 
-An adapter runs against a browser holding your real cookies, so the SDK assumes
-an adapter may be hostile and constrains it with data rather than trust:
+- `origins` is required. The host refuses navigation outside it
+- `extract` ships no code. A hostile spec cannot read `document.cookie`
+- `evaluate` and `upload` are never implicit. The author must declare them
+- Upload paths are classified first. The host refuses `~/.ssh`, `.env` and `*.pem`
+- An `irreversible` tool requires `confirm: true`
 
-- **`origins` is mandatory.** Navigation outside it is refused by the host, not
-  by the adapter. A LinkedIn adapter cannot reach your bank.
-- **`extract` ships no code.** The spec is JSON and the interpreter is fixed, so
-  a shared adapter cannot read `document.cookie` or call `fetch`.
-- **`evaluate` and `upload` are never implicit.** They have to be declared, and
-  a host shows an adapter that asks for them differently.
-- **Uploads are classified before anything is read.** `~/.ssh`, `.env`,
-  `*.pem`, browser profiles and the rest are refused outright; anything outside
-  your configured roots asks first. Narrow it further per adapter with
-  `uploads: { allowedExtensions: ['pdf'] }`.
-- **`irreversible` requires `confirm: true`**, and the requirement is printed in
-  the tool description so the agent knows before it calls.
+## Upload files
 
-Read an adapter's `origins`, `capabilities` and `uploads` block before you
-install it. Those three lines tell you everything it can do.
+Sites accept files in three ways. If you pick the wrong one, the call fails
+quietly: the click lands, nothing attaches, and the agent reports success.
 
----
+For a local path, the bytes do not pass through the extension. CDP reads the
+file directly. A coding agent runs on the same machine as the browser, so a path
+is the usual case.
 
-## Uploading files
-
-Sites accept files three ways, and picking wrong fails silently — the click
-lands, nothing attaches, and the agent reports success.
-
-| Method                                  | Use when                                                                         | Note                                                                                       |
-| --------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `page.upload(selector, file)`           | An `input[type=file]` is in the DOM                                              | Works on hidden inputs behind styled buttons — most "Attach" controls. Try this first.     |
-| `page.uploadViaPicker(trigger, file)`   | The input only exists after a click, or the site uses the File System Access API | The host intercepts the chooser, so no dialog opens on your desktop                        |
-| `page.uploadToDropZone(selector, file)` | Drag-and-drop with no input behind it                                            | Not implemented yet — returns `failed`. Most drop zones have a hidden input; use `upload`. |
-
-The caller passes a file as a path, a URL, or inline base64:
+| Method                                  | Use when                                                    |
+| --------------------------------------- | ----------------------------------------------------------- |
+| `page.upload(selector, file)`           | An `input[type=file]` is in the DOM, including a hidden one |
+| `page.uploadViaPicker(trigger, file)`   | The input exists only after a click                         |
+| `page.uploadToDropZone(selector, file)` | Drag and drop with no input. Not built yet                  |
 
 ```ts
 params: {
   resume: p.file('Resume to attach.');
 }
-// agent sends: { resume: { path: '/home/ada/Documents/cv.pdf' } }
+// the agent sends: { resume: { path: '/home/ada/Documents/cv.pdf' } }
 ```
-
-A path is the normal case — a coding agent runs on the same machine as the
-browser, so it already knows where your files are. For a local path the bytes
-never pass through the extension: CDP reads the file directly.
-
----
 
 ## When a site changes
 
-A tool returns `selector_missing` instead of an empty list, and the message
-names the file. Re-run step 2 for the one selector that broke, edit the line,
-re-run step 4. That is the entire maintenance story, and it is why the
-selectors live in a readable file rather than baked into a recording.
+The tool returns `selector_missing` and names the file. It does not return an
+empty list, because an agent reads an empty list as "no results". Run step 2
+again for the one selector that broke, then edit that line.

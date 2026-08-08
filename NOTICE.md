@@ -1,37 +1,44 @@
-# NOTICE
+# Notice
 
-This project is a fork of **[hangwin/mcp-chrome](https://github.com/hangwin/mcp-chrome)**,
-MIT licensed, © 2024 hangye.
+This project is a fork of [hangwin/mcp-chrome](https://github.com/hangwin/mcp-chrome),
+MIT licensed, copyright 2024 hangye. We forked at commit `f48e717` on
+2026-01-06.
 
-Forked at commit `f48e717` ("Merge pull request #272 from hangwin/feat/element-annotations",
-2026-01-06). The upstream git history is preserved in this repository, and the upstream remote
-is configured as `upstream`, so individual upstream fixes can still be reviewed and cherry-picked.
+The git history holds the upstream commits, so you can read where each part came
+from. The MIT licence stays in [LICENSE](./LICENSE) and applies to all inherited
+code. New code in this fork uses the same licence.
 
-The original MIT licence is retained verbatim in [`LICENSE`](./LICENSE) and applies to all code
-inherited from upstream. Modifications and new code in this fork are released under the same
-MIT licence.
+## What we inherited
 
-## What we inherited and rely on
+The browser bridge is upstream work. Our adapter layer sits on top of it and
+would not exist without that base.
 
-- Chrome extension and native-messaging host architecture
+- Chrome extension and native messaging host architecture
 - Native messaging framing, request correlation and timeouts
-- Cross-platform native-host registration
-- MCP transports (stdio, SSE, streamable HTTP)
-- Selector engine: strategies, stability scoring, fingerprints, DOM paths, shadow DOM
-- Interaction recorder and the record/replay action handlers
+- Cross-platform native host registration
+- MCP transports: stdio, SSE, and streamable HTTP
+- Selector engine: strategies, stability scoring, fingerprints, shadow DOM
+- Interaction recorder and the record and replay action handlers
 - Element picker and element marker
-- Vitest suites for record/replay
+- Vitest suites for record and replay
 
-## What this fork changes
+## What we changed
 
-See [`AUDIT.md`](./AUDIT.md) for the component-by-component comparison and
-[`DECISIONS.md`](./DECISIONS.md) for what was kept, rewritten or removed. In summary: the fork
-narrows the product to a secure local browser bridge plus compact, typed, per-site adapter
-tools, removes several large out-of-scope subsystems, reduces the extension permission
-surface, and replaces the process-wide MCP server singleton with per-connection sessions.
+We narrowed the product to a local browser bridge plus typed per-site adapter
+tools. Read [AUDIT.md](./AUDIT.md) for the component comparison and
+[DECISIONS.md](./DECISIONS.md) for the reasoning.
 
-## Third-party components removed from this fork
+We removed the ONNX runtime, the vector database, the semantic similarity
+engine, the WASM SIMD package, the agent chat service, and the web editor. Their
+licences no longer apply to this distribution.
 
-Removed along with their dependencies: the bundled ONNX runtime, the vector database and
-semantic similarity engine, the WASM SIMD package, the agent chat service, and the visual web
-editor. Their licences no longer apply to this distribution.
+## Removed release bundle
+
+The upstream repository holds a `releases/` directory. One file in it,
+`chrome-mcp-server-lastest.zip`, contains a manifest with a private RSA-2048
+key. That key derives the published extension ID
+`hbdgbgagpkpjffpklnamcljpakneikee`.
+
+We removed the directory and purged it from this fork's git history. Do not
+restore it. We reported the exposure to the upstream author so that the key can
+be rotated.

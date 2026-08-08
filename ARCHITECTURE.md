@@ -4,10 +4,10 @@ Companion to [AUDIT.md](./AUDIT.md) and [DECISIONS.md](./DECISIONS.md).
 
 ## What the system is
 
-A local browser bridge plus a set of site adapters. It lets an MCP-compatible coding agent act
-inside the browser the user is already logged into, through compact typed tools such as
-`github_list_pull_requests` or `linkedin_search_people`, without the agent ever implementing
-OAuth, replaying a login, or paging through a DOM snapshot.
+A local browser bridge plus a set of site adapters. An MCP client acts inside the
+browser the user already signed in to. It calls typed tools such as
+`github_list_pull_requests`. The agent never implements OAuth or pages through a
+DOM snapshot.
 
 Everything runs on the user's machine. Nothing is sent anywhere the adapter did not declare.
 
@@ -15,7 +15,7 @@ Everything runs on the user's machine. Nothing is sent anywhere the adapter did 
 
 Chrome 136 stopped honouring `--remote-debugging-port` on the default user-data directory, so
 no CDP client can attach to the profile that holds the user's real sessions. Playwright can
-only drive a separate profile, which means logging in again — the exact friction this product
+only drive a separate profile, which means logging in again, the exact friction this product
 removes. A browser extension talking to a local native-messaging host is currently the only
 supported path to the authenticated profile.
 
@@ -61,21 +61,21 @@ execution engine unswappable.
 
 ## Trust boundaries
 
-There are four, and each one is a place where data changes trust level.
+There are four. Each one is a place where data changes trust level.
 
-1. **MCP client → broker.** Callers are authenticated with a bearer token over loopback, or
+1. **MCP client to broker.** Callers are authenticated with a bearer token over loopback, or
    are the parent process over stdio. Tool arguments are untrusted until schema-validated.
-2. **Broker → extension.** The broker can only ask for capabilities an adapter declared. The
+2. **Broker to extension.** The broker can only ask for capabilities an adapter declared. The
    extension enforces the origin allowlist rather than trusting the broker's word.
-3. **Extension → page.** The page is hostile. Content scripts read and act; page-supplied text
+3. **Extension to page.** The page is hostile. Content scripts read and act; page-supplied text
    never becomes an instruction.
-4. **Page content → agent.** Everything returned is data. Page text that looks like a prompt
+4. **Page content to agent.** Everything returned is data. Page text that looks like a prompt
    is still page text. Results are compact and typed so there is little room to smuggle
    instructions through a wall of DOM.
 
 ## Permission model
 
-Least privilege, declared per adapter and enforced at the bridge:
+Least privilege, declared for each adapter and enforced at the bridge.
 
 ```ts
 interface AdapterPermissions {
@@ -86,15 +86,19 @@ interface AdapterPermissions {
 }
 ```
 
-The extension requests no `<all_urls>`, no `debugger`, no `history`, `bookmarks`,
+### Extension permissions
+
+The extension requests none of `<all_urls>`, `debugger`, `history`, `bookmarks`,
 `webRequest` or `declarativeNetRequest`. Host access is granted per origin as adapters are
 installed.
 
-Risk levels gate execution:
+### Risk levels
 
-- `read` — observation only.
-- `write` — changes state that is easy to undo, such as filling a draft.
-- `irreversible` — sending, purchasing, deleting, changing permissions. Requires explicit
+Risk levels gate execution.
+
+- `read`, observation only.
+- `write`, changes state that is easy to undo, such as filling a draft.
+- `irreversible`, sending, purchasing, deleting, changing permissions. Requires explicit
   confirmation and is never auto-approved.
 
 ## Multi-client model
@@ -151,7 +155,8 @@ Recording is an authoring accelerator, not the final representation.
 6. Frequently used or fragile workflows are promoted to code-defined adapters with real
    schemas and recovery behaviour.
 
-Adapters are shareable as a single `.ygs.json` pack: origins, steps and schemas, never
-cookies, profile data or recorded secrets. Installing one prints an audit of the origins it
-will visit, what it changes, and which secrets it will ask for, and strips page-script steps
-unless explicitly allowed.
+### Sharing
+
+Adapters ship as one `.ygs.json` pack. A pack holds origins, steps and schemas,
+never cookies or recorded secrets. Installing one prints an audit of the origins,
+the changes, and the secrets it asks for.
