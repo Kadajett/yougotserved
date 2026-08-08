@@ -11,9 +11,9 @@ The manifest asked for 16 permissions. It now asks for 13. `history`,
 them. Those tools read the whole browsing history and the whole bookmark tree,
 which no site adapter needs.
 
-Two items still need work before the first submission. `debugger` with
-`<all_urls>` is the pair a reviewer questions first, so the listing must justify
-both in plain words.
+One item still needs work. `debugger` with `<all_urls>` is the pair a reviewer
+questions first, so the listing must justify both in plain words. `PRIVACY.md`
+carries that wording and the store listing can reuse it.
 
 | Permission              | Used by                      | State                                  |
 | ----------------------- | ---------------------------- | -------------------------------------- |
@@ -23,6 +23,12 @@ both in plain words.
 | `history`               | Removed                      | Done                                   |
 | `bookmarks`             | Removed                      | Done                                   |
 | `declarativeNetRequest` | Nothing                      | Done                                   |
+
+### Why webRequest stays
+
+`chrome_network_capture` uses `webRequest` when the caller does not need a
+response body, and the debugger only when it does. Attaching the debugger shows
+a banner on the page, so dropping `webRequest` would make the common case worse.
 
 ### Why the two were removed, not made optional
 
