@@ -44,10 +44,15 @@ const model = reactive<any>({});
 
 function applyDefaults() {
   if (!props.node) return;
+  // This form writes back into the node it was given, rather than emitting an
+  // update. The builder relies on that, so the rule is turned off here and not
+  // repo wide. Changing it means changing the parent as well.
+  /* eslint-disable vue/no-mutating-props */
   if (!props.node.config) props.node.config = {};
   const defaults = spec.value?.defaults || {};
   for (const [k, v] of Object.entries(defaults))
     if (props.node.config[k] === undefined) props.node.config[k] = v;
+  /* eslint-enable vue/no-mutating-props */
   Object.assign(model, props.node.config);
 }
 
@@ -61,6 +66,7 @@ watch(
   model,
   () => {
     if (!props.node) return;
+    // eslint-disable-next-line vue/no-mutating-props
     props.node.config = { ...(props.node.config || {}), ...model };
   },
   { deep: true },

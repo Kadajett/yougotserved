@@ -1,0 +1,54 @@
+# Runs on everything. No path filter, because a change anywhere can break the
+# build, and a workflow that skips itself gives a green tick for no work.
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The shared package and the SDK are built first. Everything else
+      # imports them from dist, so a stale dist fails in a confusing way.
+      - run: pnpm --filter chrome-mcp-shared build
+      - run: pnpm --filter @yougotserved/adapter-sdk build
+
+      - run: pnpm lint
+
+      - run: pnpm --filter @yougotserved/adapter-sdk test
+      - run: pnpm --filter chrome-mcp-server test
+
+      - run: pnpm --filter ygs-bridge build
+      - run: pnpm --filter chrome-mcp-server build
+
+      # The extension injects the SDK extract runner into the page, which drops
+      # its closure. Only the built bundle can show whether that still holds.
+      - name: Injected runner survives bundling
+        run: node scripts/check-injected-runner.js app/chrome-extension/.output/chrome-mv3/background.js
+
+      # Cheap, and it keeps a broken pack from reaching the publish workflow.
+      - name: Check adapter packs
+        run: node scripts/adapters.mjs check

@@ -51,6 +51,13 @@ export default defineConfig([
   },
   pluginVue.configs['flat/essential'],
   { files: ['**/*.vue'], languageOptions: { parserOptions: { parser: tseslint.parser } } },
+  {
+    // TypeScript already reports an identifier that does not exist, and it
+    // knows the DOM lib types that `no-undef` does not. Leaving the rule on
+    // reports every type name, such as ScrollBehavior, as undefined.
+    files: ['**/*.{ts,tsx,vue}'],
+    rules: { 'no-undef': 'off' },
+  },
   // Prettier configuration - must be placed last to override previous rules
   prettierConfig,
 ]);

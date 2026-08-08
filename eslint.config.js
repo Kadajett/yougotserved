@@ -2,6 +2,7 @@ import globals from 'globals';
 import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import pluginVue from 'eslint-plugin-vue';
 
 export default tseslint.config(
   // Global ignores first - these apply to all configurations
@@ -57,6 +58,28 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-require-imports': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+  // Vue support has to live here too, not only in the extension's own config.
+  // lint-staged runs eslint from the repo root, and a flat config does not pick
+  // up a nested one, so without this a staged .vue file fails to parse.
+  ...pluginVue.configs['flat/essential'],
+  {
+    files: ['**/*.vue'],
+    languageOptions: { parserOptions: { parser: tseslint.parser } },
+  },
+  {
+    // TypeScript already reports an identifier that does not exist, and it
+    // knows the DOM lib types that `no-undef` does not. Leaving the rule on
+    // reports every type name, such as ScrollBehavior, as undefined.
+    files: ['**/*.{ts,tsx,vue}'],
+    rules: {
+      'no-undef': 'off',
+      // The same three the extension's own config turns off. Both configs see
+      // .vue files now, so they have to agree, or a commit and CI disagree.
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-empty': 'off',
     },
   },
   eslintConfigPrettier,
