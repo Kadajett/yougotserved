@@ -5,13 +5,13 @@ import { LINKS, NATIVE_HOST } from '@/common/constants';
 import '../sidepanel/styles/agent-chat.css';
 
 const COMMANDS = {
-  npmInstall: 'npm install -g mcp-chrome-bridge',
-  pnpmInstall: 'pnpm add -g mcp-chrome-bridge',
-  yarnInstall: 'yarn global add mcp-chrome-bridge',
+  npmInstall: 'npm install -g @yougotserved/bridge',
+  pnpmInstall: 'pnpm add -g @yougotserved/bridge',
+  yarnInstall: 'yarn global add @yougotserved/bridge',
   mcpUrl: 'http://127.0.0.1:' + NATIVE_HOST.DEFAULT_PORT + '/mcp',
-  doctor: 'mcp-chrome-bridge doctor',
-  fix: 'mcp-chrome-bridge doctor --fix',
-  report: 'mcp-chrome-bridge report --copy',
+  doctor: 'ygs doctor',
+  fix: 'ygs doctor --fix',
+  report: 'ygs report --copy',
 } as const;
 
 type CommandKey = keyof typeof COMMANDS;
@@ -273,7 +273,56 @@ async function openDocs(): Promise<void> {
 </template>
 
 <style scoped>
+/*
+ * Welcome palette: tan ground, white cards, one red accent.
+ *
+ * Scoped to this page. The shared theme in sidepanel/styles/agent-chat.css
+ * keeps its terracotta, so changing the install screen does not restyle the
+ * side panel and the popup at the same time.
+ */
 .welcome-root {
+  --ac-bg: #e4d8c3;
+  --ac-bg-pattern: radial-gradient(rgba(120, 98, 66, 0.09) 1px, transparent 1px);
+  --ac-bg-pattern-size: 22px 22px;
+
+  --ac-surface: #ffffff;
+  --ac-surface-muted: #f6f0e4;
+
+  --ac-text: #33291c;
+  --ac-text-muted: #6d6152;
+  --ac-text-subtle: #8a7d6c;
+  --ac-text-placeholder: #a0937f;
+  --ac-text-inverse: #ffffff;
+
+  --ac-border: #d5c6aa;
+  --ac-border-strong: #bfae8e;
+
+  --ac-hover-bg: #f1e9d9;
+  --ac-hover-bg-subtle: #f8f3e9;
+
+  /* One red, used for links, focus and the primary action. */
+  --ac-accent: #b3271e;
+  --ac-accent-hover: #8f1f18;
+  --ac-accent-subtle: rgba(179, 39, 30, 0.1);
+  --ac-accent-contrast: #ffffff;
+  --ac-accent-2: var(--ac-accent);
+
+  --ac-link: var(--ac-accent);
+  --ac-link-hover: var(--ac-accent-hover);
+
+  --ac-danger: #b3271e;
+  --ac-success: #4f6b3a;
+
+  --ac-selection-bg: #f3e2d3;
+  --ac-selection-text: #5c1a14;
+
+  --ac-header-bg: rgba(246, 240, 228, 0.86);
+  --ac-header-border: #d5c6aa;
+
+  --ac-shadow-card: 0 1px 3px rgba(90, 72, 44, 0.1);
+  --ac-shadow-float: 0 6px 24px -6px rgba(90, 72, 44, 0.22);
+  --ac-focus-ring: rgba(179, 39, 30, 0.35);
+
   min-height: 100%;
   background: var(--ac-bg);
   background-image: var(--ac-bg-pattern);
