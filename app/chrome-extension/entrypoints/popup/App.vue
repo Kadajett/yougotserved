@@ -4,7 +4,7 @@
     <div v-show="currentView === 'home'" class="home-view">
       <div class="header">
         <div class="header-content">
-          <h1 class="header-title">Chrome MCP Server</h1>
+          <h1 class="header-title">youGotServed</h1>
         </div>
       </div>
       <div class="content">
@@ -564,7 +564,6 @@ const updatePort = async (event: Event) => {
 
 const checkNativeConnection = async () => {
   try {
-    // eslint-disable-next-line no-undef
     const response = await chrome.runtime.sendMessage({ type: 'ping_native' });
     nativeConnectionStatus.value = response?.connected ? 'connected' : 'disconnected';
   } catch (error) {
@@ -575,7 +574,6 @@ const checkNativeConnection = async () => {
 
 const checkServerStatus = async () => {
   try {
-    // eslint-disable-next-line no-undef
     const response = await chrome.runtime.sendMessage({
       type: BACKGROUND_MESSAGE_TYPES.GET_SERVER_STATUS,
     });
@@ -593,7 +591,6 @@ const checkServerStatus = async () => {
 
 const refreshServerStatus = async () => {
   try {
-    // eslint-disable-next-line no-undef
     const response = await chrome.runtime.sendMessage({
       type: BACKGROUND_MESSAGE_TYPES.REFRESH_SERVER_STATUS,
     });
@@ -632,12 +629,11 @@ const testNativeConnection = async () => {
   isConnecting.value = true;
   try {
     if (nativeConnectionStatus.value === 'connected') {
-      // eslint-disable-next-line no-undef
       await chrome.runtime.sendMessage({ type: 'disconnect_native' });
       nativeConnectionStatus.value = 'disconnected';
     } else {
       console.log(`Connecting to port: ${nativeServerPort.value}`);
-      // eslint-disable-next-line no-undef
+
       const response = await chrome.runtime.sendMessage({
         type: 'connectNative',
         port: nativeServerPort.value,
@@ -660,7 +656,6 @@ const testNativeConnection = async () => {
 };
 const savePortPreference = async (port: number) => {
   try {
-    // eslint-disable-next-line no-undef
     await chrome.storage.local.set({ nativeServerPort: port });
     console.log(`Port preference saved: ${port}`);
   } catch (error) {
@@ -670,7 +665,6 @@ const savePortPreference = async (port: number) => {
 
 const loadPortPreference = async () => {
   try {
-    // eslint-disable-next-line no-undef
     const result = await chrome.storage.local.get(['nativeServerPort']);
     if (result.nativeServerPort) {
       nativeServerPort.value = result.nativeServerPort;
@@ -682,7 +676,6 @@ const loadPortPreference = async () => {
 };
 
 const setupServerStatusListener = () => {
-  // eslint-disable-next-line no-undef
   const onMessage = (message: { type?: string; payload?: unknown }) => {
     // Server status changes
     if (message.type === BACKGROUND_MESSAGE_TYPES.SERVER_STATUS_CHANGED && message.payload) {
