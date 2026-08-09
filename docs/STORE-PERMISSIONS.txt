@@ -70,7 +70,7 @@ site, so the set of sites is not known when we ship.
 
 The real limit sits one level down. An adapter is a JSON file that declares the
 origins it may reach, and the host refuses every address outside that list. A
-reviewer can see this: run "ygs adapter install hackernews" and the command
+reviewer can see this: run "ygs adapter add hackernews -y" and the command
 prints the origins before it writes anything. The file is readable at
 ~/.yougotserved/adapters/hackernews.ygs.json
 

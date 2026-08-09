@@ -10,57 +10,107 @@ no headless copy, and no cookie export. Chrome 136 ignores
 `--remote-debugging-port` on the default user data directory, so an extension
 and a native messaging host do the work instead.
 
-## Install
+## Two parts
 
-The bridge speaks to the extension over native messaging. Run the doctor command
-after you install, because it checks the manifest paths and the port.
+There are two parts, and you need both.
+
+The **bridge** is a program on your computer. It speaks MCP to your agent, and
+native messaging to the extension. Install it from npm.
+
+The **extension** drives Chrome. The Chrome Web Store still reviews it. Until
+the review ends, build it yourself. The steps are below and they take a minute.
+
+## What works without the extension
+
+The bridge alone does the registry work. You can search adapters, install them,
+sign in, and tip. Nothing opens a browser tab.
 
 ```bash
 npm install -g ygs-bridge
+ygs adapter search hacker
+```
+
+No tool touches a page until the extension connects. So install the bridge
+first, and add the extension when you want the browser part.
+
+## Install the bridge
+
+```bash
+npm install -g ygs-bridge
+ygs register
 ygs doctor
 ```
 
-Install the extension from the Chrome Web Store, or build it yourself below.
+The `register` command writes the native messaging manifest. The `doctor`
+command checks the manifest and the port. Every line must show OK.
 
-## Run it from source
-
-Build everything first. The extension lands in `.output/chrome-mv3`.
+Sign-in and the tip jar need version 0.1.5 or later. Check your version, and
+install again if it is older.
 
 ```bash
+ygs --version
+```
+
+## Install the extension
+
+The store review is not finished. Build the extension yourself for now.
+
+```bash
+git clone https://github.com/Kadajett/yougotserved
+cd yougotserved
 pnpm install
 pnpm build
 ```
 
-## Load the extension
+The extension lands in `app/chrome-extension/.output/chrome-mv3`.
 
-Open `chrome://extensions`, turn on Developer mode, and choose Load unpacked.
-Point it at `app/chrome-extension/.output/chrome-mv3`.
+1. Open `chrome://extensions`.
+2. Turn on Developer mode.
+3. Click Load unpacked.
+4. Choose `app/chrome-extension/.output/chrome-mv3`.
+5. Copy the extension ID that Chrome shows.
 
-Chrome derives the extension ID from the folder path. A local build gets a
-different ID from the published one, so register the host for that ID.
+Chrome makes the ID from the folder path, so your ID differs from the published
+one. Tell the bridge to permit your ID.
 
 ```bash
-node app/native-server/dist/cli.js register --extension-id <id-from-chrome>
-node app/native-server/dist/cli.js doctor
+ygs register --extension-id <id-from-chrome>
+ygs doctor
 ```
+
+When the store approves the extension, install it in one click and run
+`ygs register` with no options.
+
+## Connect
+
+1. Click the extension icon.
+2. Check that the port is 12306.
+3. Click Connect.
+
+The dot turns green. If it stays red, restart Chrome and run `ygs doctor`.
 
 ## Point your client at it
 
-The bridge serves MCP over stdio. Add it to your client config, using the
-absolute path to your checkout.
+The bridge serves MCP over stdio. Add it to your client config.
 
 ```json
 {
   "mcpServers": {
-    "ygs": {
-      "command": "node",
-      "args": ["/abs/path/to/youGotServed/app/native-server/dist/mcp/mcp-server-stdio.js"]
-    }
+    "ygs": { "command": "ygs-stdio" }
   }
 }
 ```
 
 Claude Code takes the same thing in one line.
+
+```bash
+claude mcp add ygs -- ygs-stdio
+```
+
+Restart the client. It then sees the `ygs_` tools.
+
+If you built from source instead of installing from npm, name the file
+directly.
 
 ```bash
 claude mcp add ygs -- node /abs/path/to/youGotServed/app/native-server/dist/mcp/mcp-server-stdio.js
@@ -75,6 +125,56 @@ then asks before it writes.
 ygs adapter search hacker
 ygs adapter add hackernews
 ygs adapter list
+```
+
+Your agent can do the same thing without leaving its session. See **Use** below.
+
+## Sign in
+
+Signing in is optional. Nothing needs an account. It gives your ratings and your
+tips a name, and it reserves your adapter names when you publish.
+
+```bash
+ygs account login
+```
+
+The command prints a URL and a short code. Open the URL, type the code, and
+approve it with your GitHub account. The terminal then prints your name.
+
+The browser holds the GitHub part. The bridge never sees your GitHub password.
+
+```bash
+ygs account whoami
+ygs account logout
+```
+
+## Tip
+
+Everything is free. No tool, no adapter and no route is behind a payment, and
+there is no plan to change that.
+
+If you want to send something anyway, the tip jar takes USDC on Base:
+
+<https://registry.yougotserved.dev/api/tip>
+
+The page shows an address. Copy it, and send from any wallet. Coinbase sends to
+Base without a bridge step.
+
+Your agent can do this too. It reads the tip jar with `ygs_tip`, and records a
+transfer you already sent.
+
+```text
+ygs_tip { "action": "how" }
+ygs_tip { "action": "claim", "txHash": "0x..." }
+```
+
+Sign in first if you want your name on it.
+
+The agent mentions the tip jar in one line, after a few registry calls. To stop
+that line for good:
+
+```text
+ygs_tip { "action": "hide" }
 ```
 
 ## Change an adapter
