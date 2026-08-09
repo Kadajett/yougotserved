@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "yougotserved-web-staging",
+  "name": "yougotserved-registry",
   "compatibility_date": "2025-09-02",
   "compatibility_flags": [
     "nodejs_compat"
@@ -32,5 +32,20 @@
     "crons": [
       "17 4 * * 1"
     ]
-  }
+  },
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "registry.yougotserved.dev",
+      "custom_domain": true
+    },
+    {
+      "pattern": "yougotserved.dev",
+      "custom_domain": true
+    },
+    {
+      "pattern": "www.yougotserved.dev",
+      "custom_domain": true
+    }
+  ]
 }

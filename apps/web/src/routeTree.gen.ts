@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as IndexRouteImport } from './routes/index';
 import { Route as ApiSplatRouteImport } from './routes/api.$';
+import { Route as AuthDeviceRouteImport } from './routes/auth.device';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any);
+const AuthDeviceRoute = AuthDeviceRouteImport.update({
+  id: '/auth/device',
+  path: '/auth/device',
+  getParentRoute: () => rootRouteImport,
+} as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
   '/api/$': typeof ApiSplatRoute;
+  '/auth/device': typeof AuthDeviceRoute;
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
   '/api/$': typeof ApiSplatRoute;
+  '/auth/device': typeof AuthDeviceRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
   '/api/$': typeof ApiSplatRoute;
+  '/auth/device': typeof AuthDeviceRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/api/$';
+  fullPaths: '/' | '/api/$' | '/auth/device';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/api/$';
-  id: '__root__' | '/' | '/api/$';
+  to: '/' | '/api/$' | '/auth/device';
+  id: '__root__' | '/' | '/api/$' | '/auth/device';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   ApiSplatRoute: typeof ApiSplatRoute;
+  AuthDeviceRoute: typeof AuthDeviceRoute;
 }
 
 declare module '@tanstack/react-router' {
@@ -65,12 +75,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplatRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    '/auth/device': {
+      id: '/auth/device';
+      path: '/auth/device';
+      fullPath: '/auth/device';
+      preLoaderRoute: typeof AuthDeviceRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiSplatRoute: ApiSplatRoute,
+  AuthDeviceRoute: AuthDeviceRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

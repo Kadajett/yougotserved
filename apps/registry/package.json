@@ -3,8 +3,6 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
     "typecheck": "wrangler types && tsc --noEmit",
     "db:local": "wrangler d1 execute yougotserved-registry --local --file=schema.sql",
     "db:remote": "wrangler d1 execute yougotserved-registry --remote --file=schema.sql",
@@ -21,5 +19,6 @@
   },
   "exports": {
     ".": "./src/index.ts"
-  }
+  },
+  "description": "Registry request handling. Mounted by apps/web; no longer deploys on its own."
 }
