@@ -70,27 +70,33 @@ AI coding agent can use sites the user is already signed in to.
 
 ## Permission justifications
 
-One line for each permission in the manifest. A missing answer is a common
-reason for a rejection.
+The dashboard gives one box per permission. Paste the matching block into each
+box. A missing answer is a common reason for a rejection.
 
 ```text
 nativeMessaging
   Speaks to the local ygs-bridge program, which is how the MCP client reaches
   the browser. Without it the extension has nothing to talk to.
 
+tabs
+  Finds the tab a tool was pointed at, and reports which tabs are open when the
+  agent asks. Without it a tool cannot tell one tab from another.
+
+activeTab
+  Reads and captures the tab the user is looking at when no other tab was
+  named, such as for a screenshot.
+
+scripting
+  Runs the read and click steps in the page. This is the tool work itself.
+
+webNavigation
+  Tells a persistent user script when to run, at document start or at DOM
+  ready. The tab update event fires too late for either.
+
 debugger
   Sets files on a file input for uploads, and captures response bodies. Chrome
   offers no other API for either. It is attached only for the tab a tool is
   working on, and detached after.
-
-tabs, activeTab, scripting, webNavigation
-  Read the page and act on it: click, fill, extract, and wait for a navigation
-  to finish. These are the tools themselves.
-
-<all_urls>
-  Adapters are written for whatever sites the user chooses, so the tools must be
-  able to reach the page the user points them at. The extension states each
-  adapter's origins at install and refuses any address outside them.
 
 webRequest
   Records network activity when the caller does not need a response body.
@@ -104,6 +110,21 @@ storage
 
 offscreen
   Encodes screenshots and recordings, which needs a document.
+```
+
+## Host permission justification
+
+Its own box, under the permission list. It is asking about `<all_urls>`, and a
+vague answer here is the usual cause of a slow review.
+
+```text
+An adapter is written for whatever site the user chooses, so a tool has to
+reach the page the user points it at. There is no fixed list we could declare
+up front, because the user decides which adapters to install.
+
+The extension does not treat this as open access. Every adapter states its own
+origins, those origins are shown before it is installed, and the extension
+refuses any address outside them.
 ```
 
 ## Remote code
