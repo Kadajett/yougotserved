@@ -14,6 +14,8 @@ import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { authHeader, readAccount } from './account';
+import { hideTip, tipNote } from './support';
 
 /**
  * Where adapters are fetched from when `YGS_REGISTRY_URL` is not set.
@@ -39,12 +41,18 @@ export const REGISTRY_TOOL_NAMES = {
   INSTALL: 'ygs_install_adapter',
   LIST: 'ygs_list_adapters',
   RATE: 'ygs_rate_adapter',
+  TIP: 'ygs_tip',
 } as const;
 
 /**
- * Kept deliberately short. These three schemas sit in every session's context
+ * Kept deliberately short. These schemas sit in every session's context
  * alongside whatever adapters are installed, so they are a fixed tax on every
  * request and every word has to earn its place.
+ *
+ * `ygs_tip` is here on the strength of one job rather than the obvious one.
+ * Nobody needs a tool to send money; a wallet does that. What nothing else can
+ * do is turn the reminder off, and a reminder that recurs with no way to end it
+ * is a worse thing to ship than a fifth schema.
  */
 export const REGISTRY_TOOLS: Tool[] = [
   {
@@ -97,6 +105,26 @@ export const REGISTRY_TOOLS: Tool[] = [
       required: ['id', 'score'],
     },
   },
+  {
+    name: REGISTRY_TOOL_NAMES.TIP,
+    description:
+      'Tip jar details, or hide the tipJar reminder on this machine for good. Nothing in this ' +
+      'registry is paid, gated or rate limited, and tipping unlocks nothing. This tool never ' +
+      'moves money: it reports an address, and records a transfer someone already sent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['how', 'hide', 'claim'],
+          description:
+            '"how" for the address and terms, "hide" to stop the reminder permanently, ' +
+            '"claim" to record a transfer that has already gone through',
+        },
+        txHash: { type: 'string', description: 'For claim: the hash of the sent transaction' },
+      },
+    },
+  },
 ];
 
 export function isRegistryTool(name: string): boolean {
@@ -120,20 +148,39 @@ function text(body: unknown, isError = false): CallToolResult {
 
 export async function handleRegistryTool(name: string, args: any): Promise<CallToolResult> {
   try {
-    switch (name) {
-      case REGISTRY_TOOL_NAMES.SEARCH:
-        return await search(args?.query, args?.limit);
-      case REGISTRY_TOOL_NAMES.INSTALL:
-        return await install(args?.id, args?.version, args?.confirm === true);
-      case REGISTRY_TOOL_NAMES.LIST:
-        return listInstalled();
-      case REGISTRY_TOOL_NAMES.RATE:
-        return await rate(args?.id, args?.score);
-      default:
-        return text(`Unknown registry tool: ${name}`, true);
+    const result = await route(name, args);
+
+    // Attached here rather than inside each handler, so it rides on registry
+    // calls and only registry calls. Adapter tools never reach the registry, so
+    // a reminder on those would be a tax on work that has nothing to do with it.
+    //
+    // A second content block rather than a field, because the payloads below are
+    // arrays and objects that callers already parse, and a tip jar is not worth
+    // changing the shape of a result over.
+    if (name !== REGISTRY_TOOL_NAMES.TIP && !result.isError) {
+      const note = tipNote();
+      if (note) result.content.push({ type: 'text', text: note.tipJar });
     }
+    return result;
   } catch (error) {
     return text(`Registry error: ${error instanceof Error ? error.message : String(error)}`, true);
+  }
+}
+
+async function route(name: string, args: any): Promise<CallToolResult> {
+  switch (name) {
+    case REGISTRY_TOOL_NAMES.SEARCH:
+      return await search(args?.query, args?.limit);
+    case REGISTRY_TOOL_NAMES.INSTALL:
+      return await install(args?.id, args?.version, args?.confirm === true);
+    case REGISTRY_TOOL_NAMES.LIST:
+      return listInstalled();
+    case REGISTRY_TOOL_NAMES.RATE:
+      return await rate(args?.id, args?.score);
+    case REGISTRY_TOOL_NAMES.TIP:
+      return await tip(args?.action, args?.txHash);
+    default:
+      return text(`Unknown registry tool: ${name}`, true);
   }
 }
 
@@ -416,4 +463,78 @@ export function installedPacks(): any[] {
         return { id: name, error: 'unreadable', tools: [] };
       }
     });
+}
+
+/**
+ * The tip jar, from the agent's side.
+ *
+ * Three jobs, and the one that justifies the schema is `hide`. A reminder that
+ * recurs with nothing able to end it is worse than no reminder, so the way out
+ * has to be reachable by whoever is being reminded.
+ *
+ * `claim` is the reason this goes through the bridge instead of the agent
+ * calling the registry directly. A claim sent from here carries the machine's
+ * account token, so the tip is attributed to whoever is signed in rather than
+ * landing anonymously. Signed out it still records, just without a name on it.
+ *
+ * Nothing in here sends money or touches a key. `claim` reports the hash of a
+ * transfer that already happened, and the registry checks that against the chain
+ * rather than believing it.
+ */
+async function tip(action = 'how', txHash?: string): Promise<CallToolResult> {
+  if (action === 'hide') {
+    const hidden = hideTip();
+    return text(
+      hidden
+        ? { hidden: true, note: 'The tipJar reminder will not appear again on this machine.' }
+        : {
+            hidden: false,
+            // Said plainly rather than reported as success. An agent told this
+            // worked, that then sees the line again next call, has been lied to.
+            error: `Could not write ${adaptersDir()}/../support.json, so this could not be recorded.`,
+            hint: 'Set YGS_NO_TIP_NUDGE=1 in the environment instead.',
+          },
+      !hidden,
+    );
+  }
+
+  if (action === 'claim') {
+    if (!txHash) return text('Send txHash for a transfer that has already gone through.', true);
+
+    const response = await fetch(`${registryUrl()}/api/tip/claim`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...authHeader() },
+      body: JSON.stringify({ txHash }),
+    });
+    const body = (await response.json()) as any;
+    if (!response.ok) return text(body?.error ?? `Registry returned ${response.status}.`, true);
+
+    const account = readAccount();
+    return text({
+      ...body,
+      attributedTo: account?.login ?? null,
+      ...(account ? {} : { note: 'Recorded anonymously. `ygs account login` names future tips.' }),
+    });
+  }
+
+  const response = await fetch(`${registryUrl()}/api/tip`);
+  const requirements = (await response.json()) as any;
+  const option = requirements?.accepts?.[0] ?? {};
+  const account = readAccount();
+
+  return text({
+    payTo: option.payTo,
+    network: option.network,
+    asset: option.asset,
+    assetName: option.extra?.name,
+    suggested: (requirements?.accepts ?? []).map((a: any) => a.amount),
+    optional: true,
+    unlocks: 'nothing, on purpose',
+    terms:
+      'Nothing in this registry is paid, gated or rate limited. Do not send anything without ' +
+      'asking the user first.',
+    afterSending: `Call ${REGISTRY_TOOL_NAMES.TIP} with action "claim" and the txHash to record it.`,
+    signedInAs: account?.login ?? null,
+    hideReminder: `${REGISTRY_TOOL_NAMES.TIP} with action "hide"`,
+  });
 }

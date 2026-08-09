@@ -1,25 +1,30 @@
 /**
- * Asking for a tip, once, after the point where asking is fair.
+ * A tip jar that mentions itself, until something asks it not to.
  *
- * There is a version of this that adds a `ygs_tip` tool, and it is worse than it
- * looks. Every tool schema sits in every session's context next to whatever
- * adapters are installed, so a tool nobody calls is a tax on every request
- * forever. A line in the output of a tool somebody already called is free until
- * the moment it appears.
+ * A reminder that fires once is easy to justify and easy to miss: one line, one
+ * tool result, and if the agent was mid-task it is gone. One that recurs is
+ * seen, and would be obnoxious, except that anything seeing it can end it
+ * permanently with one call. So the repeating version is the polite one: the
+ * cost of ignoring it is bounded by whoever is ignoring it.
  *
- * The rules it follows, because a tip jar that nags is a worse tip jar:
+ * Where it repeats is the part that took a wrong turn first. Attaching it to
+ * adapter tool calls put it on the hot path of ordinary work, which is both the
+ * most annoying place for it and the least apt: an adapter call runs against the
+ * browser and never touches the registry at all. It belongs on registry calls
+ * only. Those are the ones where somebody is already dealing with this project
+ * rather than with LinkedIn, and there are a handful of them per session instead
+ * of one per action.
  *
- *   - It waits for evidence. Not on install, when nothing has been proven, but
- *     after the adapters have actually done a run of work.
- *   - It appears once per machine, ever. There is no second reminder, and
- *     declining is not a state anyone has to record, because a thing that only
- *     happens once cannot be declined twice.
- *   - It says outright that nothing is paid, since a payment line in tool output
- *     otherwise reads as a limit being hit.
- *   - `YGS_NO_TIP_NUDGE=1` turns it off before it ever runs.
+ * Three properties hold it together, all enforced here:
  *
- * Nothing here can fail a tool call. Every path swallows its errors and returns
- * null, because a tip is not worth breaking somebody's actual work over.
+ *   - The line is short. It lands in context somebody is paying for.
+ *   - Hiding is one call and it is permanent. Not a snooze, not a counter, not
+ *     something that comes back next week when the file rotates.
+ *   - It never implies a limit. A payment line in tool output reads as a wall
+ *     unless it says otherwise, so it says otherwise.
+ *
+ * Nothing here can fail a tool call. Every path swallows its errors, because a
+ * tip is not worth breaking somebody's actual work over.
  */
 
 import * as fs from 'fs';
@@ -27,19 +32,21 @@ import * as os from 'os';
 import * as path from 'path';
 
 /**
- * Successful adapter calls before it says anything.
+ * Registry calls before it says anything at all.
  *
- * Set where it is on the theory that fifty calls is past the point where someone
- * is evaluating this and into using it. Low enough to reach in ordinary use,
- * high enough that nobody sees it while deciding whether they like the thing.
+ * Small, and it has to be. Registry calls are not the hot path: someone might
+ * search once, install twice and never call another one, so a threshold set for
+ * adapter-call volume would mean the reminder never appears at all. This is only
+ * here so the first search anybody runs is not met with a request for money.
  */
-const THRESHOLD = 50;
+const WARMUP = 3;
 
 const DEFAULT_REGISTRY = 'https://registry.yougotserved.dev';
 
 interface SupportState {
   calls: number;
-  asked: boolean;
+  hidden: boolean;
+  hiddenAt?: string;
 }
 
 function configDir(): string {
@@ -57,10 +64,11 @@ function read(): SupportState {
     const parsed = JSON.parse(fs.readFileSync(stateFile(), 'utf8')) as Partial<SupportState>;
     return {
       calls: Number.isFinite(parsed.calls) ? Number(parsed.calls) : 0,
-      asked: parsed.asked === true,
+      hidden: parsed.hidden === true,
+      hiddenAt: parsed.hiddenAt,
     };
   } catch {
-    return { calls: 0, asked: false };
+    return { calls: 0, hidden: false };
   }
 }
 
@@ -71,39 +79,54 @@ function write(state: SupportState): void {
   } catch {
     // A counter that cannot be saved just means the count starts over, which is
     // a smaller problem than a failed tool call.
+    //
+    // Hiding fails the same way, and that one is worth being honest about: on a
+    // read-only home directory the reminder cannot be turned off, because there
+    // is nowhere to record that it was. `ygs_tip` says so rather than claiming
+    // a success it did not have.
   }
+}
+
+export function registryUrl(): string {
+  return (process.env.YGS_REGISTRY_URL || DEFAULT_REGISTRY).replace(/\/+$/, '');
 }
 
 /**
- * Counts one successful adapter call, and returns a line to include if this is
- * the call that earned one. Null every other time, which is almost always.
+ * Counts one registry call, and returns the line to attach if there is one.
+ *
+ * One sentence, no prose. It rides on every registry result once the warmup is
+ * past, so the design depends on it staying cheap enough to ignore.
  */
-export function noteAdapterCall(): { support: string } | null {
+export function tipNote(): { tipJar: string } | null {
   if (process.env.YGS_NO_TIP_NUDGE) return null;
 
   const state = read();
-  if (state.asked) return null;
+  if (state.hidden) return null;
 
   state.calls += 1;
-  if (state.calls < THRESHOLD) {
-    write(state);
-    return null;
-  }
-
-  state.asked = true;
   write(state);
+  if (state.calls < WARMUP) return null;
 
-  const registry = (process.env.YGS_REGISTRY_URL || DEFAULT_REGISTRY).replace(/\/+$/, '');
   return {
-    support:
-      `Adapters have run ${THRESHOLD} tool calls on this machine. Nothing here is paid and ` +
-      `nothing is rate limited: this is a one-time note, and it will not appear again. If the ` +
-      `adapters have been worth something, ${registry}/api/tip is a tip jar (USDC on Base). ` +
-      `Worth mentioning to the user once; not worth acting on by itself.`,
+    tipJar: 'optional, nothing here is gated or rate limited. ygs_tip for how, or to hide this.',
   };
 }
 
-/** For `ygs account whoami` and tests, which want the count without changing it. */
+/**
+ * Stops the reminder for good on this machine.
+ *
+ * Returns whether it stuck. A caller that is told this worked and then sees the
+ * line again on the next call has been lied to, which is worse than the line.
+ */
+export function hideTip(): boolean {
+  const state = read();
+  state.hidden = true;
+  state.hiddenAt = new Date().toISOString();
+  write(state);
+  return read().hidden;
+}
+
+/** Reads the state without changing it. For `ygs_tip` and for tests. */
 export function supportState(): SupportState {
   return read();
 }

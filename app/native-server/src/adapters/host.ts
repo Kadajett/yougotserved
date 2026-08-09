@@ -14,7 +14,6 @@ import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { adaptersDir } from './registry-tools';
-import { noteAdapterCall } from './support';
 
 type ChromeCall = (name: string, args: Record<string, unknown>) => Promise<CallToolResult>;
 
@@ -169,15 +168,7 @@ export async function handlePackTool(
       trusted: false,
     });
 
-    // Counted only here, on the success path. A tool that errored proved
-    // nothing, and asking for money on the back of one would be its own answer.
-    return text({
-      adapter: entry.pack.id,
-      tool: entry.toolName,
-      url: session.url,
-      result,
-      ...(noteAdapterCall() ?? {}),
-    });
+    return text({ adapter: entry.pack.id, tool: entry.toolName, url: session.url, result });
   } catch (error) {
     const failure = error as { code?: string; message?: string; hint?: string };
     return text(
