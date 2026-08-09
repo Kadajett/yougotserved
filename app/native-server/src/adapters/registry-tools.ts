@@ -305,10 +305,12 @@ async function rate(id: string, score: number): Promise<CallToolResult> {
     return text(`${id} is not installed here. Install and use it before rating it.`, true);
   }
 
+  const work = await solveChallenge();
+
   const response = await fetch(`${registryUrl()}/api/adapters/${encodeURIComponent(id)}/rate`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ score, installId: installId() }),
+    body: JSON.stringify({ score, installId: installId(), ...work }),
   });
 
   const body = (await response.json()) as any;
@@ -316,6 +318,61 @@ async function rate(id: string, score: number): Promise<CallToolResult> {
     return text(body?.error?.message ?? `Registry returned ${response.status}.`, true);
 
   return text({ rated: `${id} ${score}/5`, average: body.rating, votes: body.votes });
+}
+
+/**
+ * Pays the registry's proof of work.
+ *
+ * The registry cannot ask an agent for a Turnstile, because an agent has no
+ * browser to be one, and teaching it to answer a bot check would be worse than
+ * the problem. So a write costs CPU instead: find a nonce whose digest starts
+ * with enough zero bits. One rating is about a second here and nobody notices.
+ * A machine trying to invent a thousand ratings pays a thousand seconds, and
+ * that is the whole trade.
+ *
+ * If the registry has no challenge endpoint, this returns nothing and the write
+ * goes out plain, which is how an older deployment keeps working.
+ */
+async function solveChallenge(): Promise<{ challenge: string; nonce: string } | undefined> {
+  let challenge: string;
+  let bits: number;
+
+  try {
+    const response = await fetch(`${registryUrl()}/api/challenge`);
+    if (!response.ok) return undefined;
+    const body = (await response.json()) as { challenge?: string; bits?: number };
+    if (!body.challenge || !body.bits) return undefined;
+    challenge = body.challenge;
+    bits = body.bits;
+  } catch {
+    return undefined;
+  }
+
+  const whole = Math.floor(bits / 8);
+  const spare = bits % 8;
+  // A byte-wise compare, so the inner loop never allocates a hex string. At a
+  // million-odd hashes that difference is most of the runtime.
+  const check = (digest: Buffer): boolean => {
+    for (let index = 0; index < whole; index++) if (digest[index] !== 0) return false;
+    return spare === 0 || (digest[whole] as number) >> (8 - spare) === 0;
+  };
+
+  const prefix = `${challenge}:`;
+  // Bounded so a raised difficulty cannot hang the tool call. Twenty bits needs
+  // a million tries on average, and giving up is better than never answering.
+  for (let nonce = 0; nonce < 80_000_000; nonce++) {
+    if (
+      check(
+        crypto
+          .createHash('sha256')
+          .update(prefix + nonce)
+          .digest(),
+      )
+    ) {
+      return { challenge, nonce: String(nonce) };
+    }
+  }
+  return undefined;
 }
 
 /** Random, written once, never leaves this machine except as a salted hash. */

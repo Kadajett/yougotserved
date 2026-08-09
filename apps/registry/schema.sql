@@ -48,3 +48,54 @@ CREATE TABLE IF NOT EXISTS ratings (
 CREATE INDEX IF NOT EXISTS idx_versions_adapter  ON versions(adapter_id, published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_downloads_adapter ON downloads(adapter_id);
 CREATE INDEX IF NOT EXISTS idx_ratings_adapter   ON ratings(adapter_id);
+
+-- Request counters, one row per caller per window.
+--
+-- Keyed on a hashed address, so the table never holds an IP. Rows expire by
+-- window rather than being deleted on a schedule: an old window can never be
+-- read, because the key contains the window it belongs to.
+CREATE TABLE IF NOT EXISTS throttle (
+  bucket     TEXT PRIMARY KEY,
+  hits       INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_throttle_expiry ON throttle(expires_at);
+
+-- What the abuse checks decided about a submission, and whether a person has
+-- looked at it since.
+--
+-- A row with `cleared_at IS NULL` hides the adapter from every listing. That is
+-- the whole moderation queue: held submissions are the rows nobody has cleared.
+-- Findings are kept as JSON because a moderator has to be able to see why, and
+-- an author has to be able to argue with it.
+CREATE TABLE IF NOT EXISTS moderation (
+  adapter_id TEXT PRIMARY KEY,
+  version    TEXT NOT NULL,
+  severity   TEXT NOT NULL,               -- review | block
+  score      INTEGER NOT NULL,
+  field      TEXT,
+  findings   TEXT NOT NULL,               -- JSON array
+  created_at INTEGER NOT NULL,
+  cleared_at INTEGER
+);
+
+-- Bans, by whatever handle the abuse can actually be held by.
+--
+-- Banning an address does nothing to someone renting a proxy pool, and no free
+-- control changes that. So a subject here is any of: a hashed address, an ASN,
+-- a hashed voter id, or a content fingerprint. The last two are what survive
+-- rotation, because they describe what is being sent rather than where from.
+--
+-- `expires_at` is null for a permanent ban. Prefer an expiry: a wrong ban that
+-- lapses is a bad week, and a wrong permanent ban is a person who never comes
+-- back and never finds out why.
+CREATE TABLE IF NOT EXISTS bans (
+  subject    TEXT PRIMARY KEY,            -- "<kind>:<value>"
+  kind       TEXT NOT NULL,               -- address | asn | voter | fingerprint
+  reason     TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_bans_kind ON bans(kind);

@@ -238,6 +238,9 @@ importers:
       '@yougotserved/adapter-sdk':
         specifier: workspace:*
         version: link:../../packages/adapter-sdk
+      '@yougotserved/moderation':
+        specifier: workspace:*
+        version: link:../../packages/moderation
     devDependencies:
       wrangler:
         specifier: ^4.120.0
@@ -257,6 +260,22 @@ importers:
       jsdom:
         specifier: ^26.0.0
         version: 26.1.0
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.33.0)
+
+  packages/moderation:
+    dependencies:
+      obscenity:
+        specifier: ^0.4.6
+        version: 0.4.6
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.20.1
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
@@ -4512,6 +4531,10 @@ packages:
   object-inspect@1.13.4:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
+
+  obscenity@0.4.6:
+    resolution: {integrity: sha512-pHk7kNN7j3L3zGhhGnwxjvXIGsPpLrcZl2r58fqWh/V/rH6b/dafscj2sMmAY+A/9/wPsocLmimgGk2DKeKsFQ==}
+    engines: {node: '>=18.0.0'}
 
   obug@2.1.4:
     resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
@@ -10342,6 +10365,8 @@ snapshots:
   object-assign@4.1.1: {}
 
   object-inspect@1.13.4: {}
+
+  obscenity@0.4.6: {}
 
   obug@2.1.4: {}
 

@@ -1,0 +1,32 @@
+{
+  "name": "@yougotserved/moderation",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic abuse checks for user-submitted text. Runs anywhere, including a Worker.",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.mjs" },
+      "require": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch",
+    "test": "vitest run",
+    "lint": "npx eslint 'src/**/*.ts'",
+    "format": "prettier --write 'src/**/*.{ts,json}'"
+  },
+  "dependencies": {
+    "obscenity": "^0.4.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsup": "^8.4.0",
+    "vitest": "^3.0.0"
+  }
+}
