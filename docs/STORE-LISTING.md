@@ -100,16 +100,10 @@ downloads
   Saves a file a tool was asked to download.
 
 storage
-  Keeps settings and recorded flows on this machine.
-
-alarms
-  Reconnects to the local program after the service worker is stopped.
+  Keeps settings and installed adapters on this machine.
 
 offscreen
   Encodes screenshots and recordings, which needs a document.
-
-contextMenus, sidePanel
-  The right-click entries and the panel where the user manages flows.
 ```
 
 ## Remote code
@@ -134,10 +128,11 @@ Privacy policy: https://github.com/Kadajett/yougotserved/blob/master/PRIVACY.md
 
 ## Screenshots
 
-The store wants at least one, at 1280 by 800 or 640 by 400. Show the result,
-not the settings.
+The store wants at least one, at 1280 by 800 or 640 by 400. Upload
+`docs/store/screenshot-activity-panel.png`. It is a real run, and the panel
+names the adapter tool beside each browser call it made.
 
-- An agent calling `linkedin_search_people` and getting back records
+Later additions, when there is something to show:
+
 - The install step printing the origins and refusing without confirmation
 - The registry page listing adapters
-- The welcome screen with the install command
