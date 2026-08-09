@@ -36,7 +36,77 @@ export interface OriginRule {
 
 const HOST_PATTERN = /^[a-z0-9.-]+$/;
 
-export function parseOriginPattern(pattern: string): OriginRule {
+/** Anything that parses as a bare address rather than a name. */
+const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
+
+/**
+ * Suffixes that resolve to something on the user's own machine or network.
+ *
+ * From RFC 6761 and RFC 6762, plus the conventions container runtimes added on
+ * their own. The list is deliberately not every reserved name: `.test`,
+ * `.invalid` and `.example` are reserved too, and they route nowhere, so
+ * refusing them would buy no safety while breaking the one naming convention
+ * test fixtures are supposed to use.
+ */
+const PRIVATE_SUFFIXES = [
+  'localhost',
+  'local',
+  'localdomain',
+  'internal',
+  'intranet',
+  'lan',
+  'home.arpa',
+];
+
+/**
+ * Refuses a host that names somewhere private rather than a site.
+ *
+ * This is the check that was missing, and it mattered more than it looks. The
+ * runtime guard enforces an adapter's declared origins faithfully, which means
+ * the declaration is the whole of the security boundary: a pack that declared
+ * `192.168.1.1` was granted the user's router admin page, in a browser holding
+ * their session, and the guard would have been working exactly as designed.
+ *
+ * Addresses are refused entirely rather than only the private ranges. A public
+ * site has a name; a published pack pointing at a bare address has either got
+ * something wrong or is trying to sidestep a name it did not want shown.
+ */
+function assertPublicHost(host: string, pattern: string): void {
+  if (IPV4.test(host) || /^\[|:/.test(host)) {
+    throw new OriginError(
+      `Origin "${pattern}" is an address, not a site. Adapters run against a browser holding ` +
+        `the user's session, so an address can name their own network. Use a hostname.`,
+    );
+  }
+
+  const labels = host.split('.');
+  if (labels.length < 2) {
+    throw new OriginError(
+      `Origin "${pattern}" has no dot, so it names a machine on the local network rather than ` +
+        `a site on the internet.`,
+    );
+  }
+
+  for (const suffix of PRIVATE_SUFFIXES) {
+    if (host === suffix || host.endsWith(`.${suffix}`)) {
+      throw new OriginError(
+        `Origin "${pattern}" ends in ".${suffix}", which never names a public site.`,
+      );
+    }
+  }
+}
+
+export interface OriginOptions {
+  /**
+   * Allow private and local hosts.
+   *
+   * For a pack being developed against a machine, never for one being
+   * published. The registry does not pass it, and cannot be made to.
+   */
+  allowPrivate?: boolean;
+}
+
+export function parseOriginPattern(pattern: string, options: OriginOptions = {}): OriginRule {
   const raw = pattern.trim().toLowerCase();
   if (!raw) throw new OriginError('An origin pattern cannot be empty.');
 
@@ -76,6 +146,7 @@ export function parseOriginPattern(pattern: string): OriginRule {
       `Origin "${pattern}" must not include a path. Fence by origin; match paths inside the tool.`,
     );
   }
+  if (!options.allowPrivate) assertPublicHost(url.hostname, pattern);
 
   return {
     source: pattern.trim(),
@@ -106,14 +177,14 @@ export interface UrlGuard {
 /**
  * Builds the guard the host wraps around every navigation an adapter attempts.
  */
-export function createUrlGuard(patterns: readonly string[]): UrlGuard {
+export function createUrlGuard(patterns: readonly string[], options: OriginOptions = {}): UrlGuard {
   if (patterns.length === 0) {
     throw new OriginError(
       'An adapter must declare at least one origin. Tools run against a logged-in browser, ' +
         'so there is no safe default.',
     );
   }
-  const rules = patterns.map(parseOriginPattern);
+  const rules = patterns.map((pattern) => parseOriginPattern(pattern, options));
   const sources = rules.map((rule) => rule.source);
 
   function allows(candidate: string): boolean {

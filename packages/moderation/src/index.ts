@@ -16,12 +16,15 @@
 import { RegExpMatcher, englishDataset, englishRecommendedTransformers } from 'obscenity';
 import { collapseRuns, normalise } from './normalize.js';
 import { scoreSpam, type Finding, type SpamOptions } from './spam.js';
+import { reviewUrls } from './urls.js';
 
 export { normalise, collapseRuns } from './normalize.js';
 export { fingerprint, MIN_WORDS } from './fingerprint.js';
 export { scoreSpam } from './spam.js';
+export { reviewUrls, hostOf } from './urls.js';
 export type { Finding } from './spam.js';
 export type { Normalised } from './normalize.js';
+export type { UrlVerdict } from './urls.js';
 
 /**
  * `block` is refused outright. `review` is accepted and held for a person.
@@ -84,6 +87,13 @@ export function review(input: string, options: ReviewOptions = {}): Verdict {
       weight: options.strictProfanity ? blockAt : 4,
     });
   }
+
+  // The spam rules count links. This looks at where they point, which is a
+  // different question: one link to a redirector says more than five to a blog.
+  // Read off the raw input, because normalisation folds the lookalikes that are
+  // the whole signal for a host written to be misread.
+  const links = input?.match(/\b(?:https?:\/\/|www\.)[^\s<>"']+/gi) ?? [];
+  if (links.length > 0) findings.push(...reviewUrls(links).findings);
 
   const score = findings.reduce((total, finding) => total + finding.weight, 0);
   const severity: Severity = score >= blockAt ? 'block' : score >= reviewAt ? 'review' : 'allow';

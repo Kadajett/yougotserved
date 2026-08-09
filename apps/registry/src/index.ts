@@ -602,8 +602,24 @@ async function publish(request: Request, env: Env): Promise<Response> {
     prose[`tools.${toolId}.returns`] = tool.returns;
   }
 
-  const { reviewFields, fingerprint } = await import('@yougotserved/moderation');
+  const { reviewFields, fingerprint, reviewUrls } = await import('@yougotserved/moderation');
   const verdict = reviewFields(prose);
+
+  // Origins are not prose, and they matter more than prose. The host lets a
+  // pack reach exactly what it declared, so the declaration is the security
+  // boundary. `validatePack` above has already refused the ones that are unsafe
+  // by construction, addresses and local names; this is the reputation pass,
+  // which lives here so it can change without shipping a new SDK to every
+  // install. A redirector scores high enough to refuse on its own, because an
+  // origin fence around one fences nothing.
+  const origins = reviewUrls(pack.origins);
+  if (origins.findings.length > 0) {
+    verdict.findings.push(...origins.findings);
+    verdict.score += origins.findings.reduce((total, finding) => total + finding.weight, 0);
+    if (verdict.score >= 7) verdict.severity = 'block';
+    else if (verdict.score >= 3 && verdict.severity === 'allow') verdict.severity = 'review';
+    verdict.field ??= 'origins';
+  }
 
   const print = await fingerprint(Object.values(prose).filter(Boolean).join(' '));
   const refusal = await banned(env, [

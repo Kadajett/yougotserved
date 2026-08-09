@@ -28,6 +28,43 @@ describe('parseOriginPattern', () => {
   it('rejects wildcards anywhere but the front', () => {
     expect(() => parseOriginPattern('linked*.com')).toThrow(/only wildcard/);
   });
+
+  // The declaration is the whole security boundary: the guard enforces it
+  // exactly, so whatever a pack may declare, a pack may reach. These used to be
+  // accepted, which handed an installed adapter the user's own network.
+  it('rejects addresses, which can name the user’s own network', () => {
+    for (const pattern of ['127.0.0.1', '192.168.1.1', '10.0.0.5', '169.254.169.254', '0.0.0.0']) {
+      expect(() => parseOriginPattern(pattern)).toThrow(/is an address, not a site/);
+    }
+  });
+
+  it('rejects hosts with no dot, which resolve on the local network', () => {
+    expect(() => parseOriginPattern('router')).toThrow(/no dot/);
+    expect(() => parseOriginPattern('intranet')).toThrow(/no dot/);
+  });
+
+  it('rejects suffixes that never name a public site', () => {
+    for (const pattern of [
+      'localhost',
+      'app.localhost',
+      'printer.local',
+      'host.docker.internal',
+      'box.home.arpa',
+      'thing.lan',
+    ]) {
+      expect(() => parseOriginPattern(pattern)).toThrow(OriginError);
+    }
+  });
+
+  it('still allows a real site', () => {
+    expect(parseOriginPattern('https://*.myworkdayjobs.com').host).toBe('myworkdayjobs.com');
+    expect(parseOriginPattern('news.ycombinator.com').host).toBe('news.ycombinator.com');
+  });
+
+  it('lets a pack under development opt in, which the registry never does', () => {
+    expect(parseOriginPattern('localhost:3000', { allowPrivate: true }).host).toBe('localhost');
+    expect(parseOriginPattern('127.0.0.1', { allowPrivate: true }).host).toBe('127.0.0.1');
+  });
 });
 
 describe('createUrlGuard', () => {
