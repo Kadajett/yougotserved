@@ -1,0 +1,61 @@
+{
+  "format": 1,
+  "id": "duckduckgo",
+  "name": "DuckDuckGo",
+  "description": "Search the web and get back titles, URLs and snippets, without loading a results page into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://html.duckduckgo.com"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search": {
+      "description": "Search the web. Supports the usual operators, such as site: and quoted phrases.",
+      "returns": "One record per result: title, url and snippet. The url has no scheme, so prefix https:// .",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"site:docs.rs tokio spawn\""
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 30
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://html.duckduckgo.com/html/?q={{query|url}}",
+          "until": { "selector": "div.result" }
+        },
+        {
+          "assert": {
+            "selector": "div.result",
+            "code": "not_found",
+            "message": "DuckDuckGo returned no results block.",
+            "hint": "It may be rate limiting this browser. Open the page yourself and check."
+          }
+        },
+        {
+          "extract": {
+            "each": "div.result:not(.result--ad)",
+            "limit": "{{limit}}",
+            "fields": {
+              "title": { "selector": "h2 a.result__a", "fallback": null },
+              "url": { "selector": ".result__url", "fallback": null },
+              "snippet": { "selector": ".result__snippet", "fallback": null }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

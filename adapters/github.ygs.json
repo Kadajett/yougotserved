@@ -1,0 +1,204 @@
+{
+  "format": 1,
+  "id": "github",
+  "name": "GitHub",
+  "description": "Search repositories, read an issue thread, and star or unstar a repo with your own session.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://github.com"],
+  "signInUrl": "https://github.com/login",
+  "capabilities": ["navigate", "read", "interact"],
+  "tools": {
+    "search_repos": {
+      "description": "Search GitHub repositories. Supports the usual qualifiers, such as language: and stars:.",
+      "returns": "One record per repository: full name, url and description.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search terms, e.g. \"mcp browser language:rust stars:>100\""
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 30
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://github.com/search?q={{query|url}}&type=repositories",
+          "until": { "selector": "[data-testid='results-list']" }
+        },
+        {
+          "assert": {
+            "selector": "[data-testid='results-list']",
+            "code": "not_found",
+            "message": "GitHub returned no results list.",
+            "hint": "Check the query, or sign in if GitHub asked you to."
+          }
+        },
+        {
+          "extract": {
+            "each": "[data-testid='results-list'] > div",
+            "limit": "{{limit}}",
+            "fields": {
+              "repo": { "selector": "a[href^='/']", "fallback": null },
+              "url": { "selector": "a[href^='/']", "prop": "href", "fallback": null },
+              "description": { "selector": "h3 + div, p", "fallback": null }
+            }
+          }
+        }
+      ]
+    },
+    "read_issue": {
+      "description": "Read one issue or pull request thread, with the body and every comment.",
+      "returns": "One record per post: the author and the full text.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owner": { "type": "string", "description": "Repository owner, e.g. \"tokio-rs\"" },
+          "repo": { "type": "string", "description": "Repository name, e.g. \"tokio\"" },
+          "number": { "type": "integer", "description": "Issue or pull request number" },
+          "limit": {
+            "type": "integer",
+            "description": "How many posts to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["owner", "repo", "number"]
+      },
+      "steps": [
+        {
+          "goto": "https://github.com/{{owner|url}}/{{repo|url}}/issues/{{number|url}}",
+          "until": { "selector": "[data-testid='issue-viewer-issue-container']" }
+        },
+        {
+          "assert": {
+            "selector": "[data-testid='issue-viewer-issue-container']",
+            "code": "not_found",
+            "message": "GitHub showed no issue at that number.",
+            "hint": "Check the owner, repo and number."
+          }
+        },
+        {
+          "extract": {
+            "each": "[data-testid='issue-viewer-issue-container'], [data-testid^='comment-viewer']",
+            "limit": "{{limit}}",
+            "fields": {
+              "author": { "selector": "img[alt^='@']", "attr": "alt", "fallback": null },
+              "body": {
+                "selector": "[data-testid='markdown-body'], .comment-body",
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "star_repo": {
+      "description": "Star a repository with your account. Reversible with unstar_repo.",
+      "returns": "The star button state after the click, so you can confirm it took.",
+      "risk": "write",
+      "capabilities": ["navigate", "read", "interact"],
+      "requiresConfirm": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owner": { "type": "string", "description": "Repository owner" },
+          "repo": { "type": "string", "description": "Repository name" }
+        },
+        "required": ["owner", "repo"]
+      },
+      "steps": [
+        {
+          "goto": "https://github.com/{{owner|url}}/{{repo|url}}",
+          "until": { "selector": "button[aria-label^='Star '], button[aria-label^='Unstar ']" }
+        },
+        {
+          "assert": {
+            "selector": "button[aria-label^='Star '], button[aria-label^='Unstar ']",
+            "code": "not_authenticated",
+            "message": "GitHub showed no star button.",
+            "hint": "Sign in to GitHub in this browser, then try again."
+          }
+        },
+        {
+          "click": "button[aria-label^='Star ']",
+          "optional": true,
+          "until": { "selector": "button[aria-label^='Unstar ']" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "starred": { "selector": "button[aria-label^='Unstar ']", "exists": true },
+              "button": {
+                "selector": "button[aria-label^='Star '], button[aria-label^='Unstar ']",
+                "attr": "aria-label",
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unstar_repo": {
+      "description": "Remove your star from a repository.",
+      "returns": "The star button state after the click, so you can confirm it took.",
+      "risk": "write",
+      "capabilities": ["navigate", "read", "interact"],
+      "requiresConfirm": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "owner": { "type": "string", "description": "Repository owner" },
+          "repo": { "type": "string", "description": "Repository name" }
+        },
+        "required": ["owner", "repo"]
+      },
+      "steps": [
+        {
+          "goto": "https://github.com/{{owner|url}}/{{repo|url}}",
+          "until": { "selector": "button[aria-label^='Star '], button[aria-label^='Unstar ']" }
+        },
+        {
+          "assert": {
+            "selector": "button[aria-label^='Star '], button[aria-label^='Unstar ']",
+            "code": "not_authenticated",
+            "message": "GitHub showed no star button.",
+            "hint": "Sign in to GitHub in this browser, then try again."
+          }
+        },
+        {
+          "click": "button[aria-label^='Unstar ']",
+          "optional": true,
+          "until": { "selector": "button[aria-label^='Star ']" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "starred": { "selector": "button[aria-label^='Unstar ']", "exists": true },
+              "button": {
+                "selector": "button[aria-label^='Star '], button[aria-label^='Unstar ']",
+                "attr": "aria-label",
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

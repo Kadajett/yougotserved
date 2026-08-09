@@ -1,0 +1,116 @@
+{
+  "format": 1,
+  "id": "crates_io",
+  "name": "crates.io",
+  "description": "Search the Rust crate registry and read a crate page, without loading whole pages into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://crates.io"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search_crates": {
+      "description": "Search crates.io. Returns name, version, description and download counts for each hit.",
+      "returns": "A list of crates, best match first.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"async runtime\""
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 30
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://crates.io/search?q={{query|url}}",
+          "until": { "selector": "li a[href^='/crates/']" }
+        },
+        {
+          "assert": {
+            "selector": "li a[href^='/crates/']",
+            "code": "not_found",
+            "message": "crates.io returned no results.",
+            "hint": "Try fewer or broader words."
+          }
+        },
+        {
+          "extract": {
+            "each": "li:has(a[href^='/crates/'])",
+            "limit": "{{limit}}",
+            "fields": {
+              "name": { "selector": "a[href^='/crates/']", "fallback": null },
+              "url": { "selector": "a[href^='/crates/']", "prop": "href", "fallback": null },
+              "version": { "selector": "span.version", "fallback": null },
+              "description": { "selector": ".description", "fallback": null },
+              "downloads": {
+                "selector": ".downloads",
+                "regex": ":\\s*([\\d,]+)",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "recentDownloads": {
+                "selector": ".recent-downloads",
+                "regex": ":\\s*([\\d,]+)",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "crate_info": {
+      "description": "Read one crate page. Give it the exact crate name.",
+      "returns": "The description, plus the sidebar facts as label and value pairs, including the cargo add line.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Crate name, e.g. \"tokio\"" }
+        },
+        "required": ["name"]
+      },
+      "steps": [
+        {
+          "goto": "https://crates.io/crates/{{name|url}}",
+          "until": { "selector": ".sidebar h2, .sidebar h3" }
+        },
+        {
+          "assert": {
+            "selector": ".sidebar h2, .sidebar h3",
+            "code": "not_found",
+            "message": "crates.io showed no crate page for that name.",
+            "hint": "Check the spelling with search_crates."
+          }
+        },
+        {
+          "extract": {
+            "fields": { "description": { "selector": ".description", "fallback": null } }
+          },
+          "as": "crate"
+        },
+        {
+          "extract": {
+            "each": ".sidebar h2, .sidebar h3",
+            "limit": 12,
+            "fields": { "label": {}, "value": { "from": "next", "fallback": null } }
+          },
+          "as": "metadata"
+        }
+      ]
+    }
+  }
+}
