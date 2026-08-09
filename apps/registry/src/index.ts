@@ -343,7 +343,9 @@ export default {
       if (rate?.[1] && request.method === 'POST') return rateAdapter(rate[1], request, env);
 
       const pack = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)\/([^/]+)\/pack\.json$/);
-      if (pack?.[1] && pack[2]) return downloadPack(pack[1], pack[2], env);
+      if (pack?.[1] && pack[2] && request.method === 'GET') {
+        return downloadPack(pack[1], pack[2], env);
+      }
 
       if (path === '/api/resolve' && request.method === 'GET') return resolveHost(url);
       if (path === '/api/challenge' && request.method === 'GET') return issueChallenge(env);
