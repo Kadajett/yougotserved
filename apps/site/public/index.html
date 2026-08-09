@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>youGotServed</title>
+    <meta
+      name="description"
+      content="Compact, site-specific browser tools for coding agents. Runs in the browser you already signed in to."
+    />
+    <link rel="icon" href="/icon.png" />
+
+    <meta property="og:title" content="youGotServed" />
+    <meta
+      property="og:description"
+      content="Compact, site-specific browser tools for coding agents. Runs in the browser you already signed in to."
+    />
+    <meta property="og:url" content="https://yougotserved.dev/" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+
+    <style>
+      :root {
+        --ink: #33291c;
+        --muted: #6d6152;
+        --red: #b3271e;
+        --page: #faf6ee;
+        --card: #fff;
+        --line: #e4d8c3;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #f3ece0;
+          --muted: #b3a894;
+          --red: #ff6b5e;
+          --page: #1c1710;
+          --card: #262017;
+          --line: #3b3226;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 8vh 24px 64px;
+        background: var(--page);
+        color: var(--ink);
+        font:
+          17px/1.6 ui-sans-serif,
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Helvetica,
+          sans-serif;
+        display: flex;
+        justify-content: center;
+      }
+      main {
+        width: 100%;
+        max-width: 34rem;
+      }
+      h1 {
+        margin: 0;
+        font-size: 2.6rem;
+        letter-spacing: -0.02em;
+      }
+      h1 span {
+        color: var(--red);
+      }
+      .tag {
+        margin: 4px 0 28px;
+        color: var(--muted);
+        font-size: 1rem;
+      }
+      p {
+        margin: 0 0 28px;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 32px;
+      }
+      a.btn {
+        display: inline-block;
+        padding: 10px 16px;
+        border-radius: 9px;
+        border: 1px solid var(--line);
+        background: var(--card);
+        color: var(--ink);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      a.btn:hover {
+        border-color: var(--red);
+        color: var(--red);
+      }
+      a.btn.primary {
+        background: var(--red);
+        border-color: var(--red);
+        color: #fff;
+      }
+      a.btn.primary:hover {
+        color: #fff;
+        opacity: 0.9;
+      }
+      /* Their button art, sized to sit level with the text buttons. */
+      .coffee img {
+        display: block;
+        height: 42px;
+        width: auto;
+        border-radius: 9px;
+      }
+      pre {
+        margin: 0 0 32px;
+        padding: 14px 16px;
+        overflow-x: auto;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 9px;
+        font:
+          14px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          Consolas,
+          monospace;
+      }
+      footer {
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      footer a {
+        color: var(--muted);
+      }
+    </style>
+  </head>
+
+  <body>
+    <main>
+      <h1><span>ygs</span> youGotServed</h1>
+      <p class="tag">Compact, site-specific browser tools for coding agents.</p>
+
+      <p>
+        Give a coding agent one tool that does the job, instead of thirty that describe a browser.
+        Tools run in the browser you already signed in to, so there is no second profile and no
+        cookie export.
+      </p>
+
+      <pre>npm install -g ygs-bridge</pre>
+
+      <div class="links">
+        <a class="btn primary" href="https://github.com/Kadajett/yougotserved">Source on GitHub</a>
+        <a class="btn" href="https://registry.yougotserved.dev">Adapter registry</a>
+        <a class="coffee" href="https://www.buymeacoffee.com/kadajett">
+          <img
+            alt="Buy me a coffee"
+            src="https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=kadajett&button_colour=FF5F5F&font_colour=ffffff&font_family=Poppins&outline_colour=000000&coffee_colour=FFDD00"
+          />
+        </a>
+      </div>
+
+      <p>Every action an agent takes appears on the page, with the arguments it used.</p>
+
+      <footer>
+        <a href="https://github.com/Kadajett/yougotserved/blob/master/PRIVACY.md">Privacy</a> ·
+        <a href="https://github.com/Kadajett/yougotserved/blob/master/LICENSE">MIT licence</a>
+      </footer>
+    </main>
+  </body>
+</html>
