@@ -110,18 +110,47 @@ export function getSystemManifestPath(): string {
 }
 
 /**
+ * Finds the directory holding the native host wrapper script.
+ *
+ * This used to be `path.join(__dirname, '..')`, which is right in
+ * `dist/scripts/` and wrong everywhere else. The bundler inlines these helpers
+ * into `dist/cli.js` as well, where `__dirname` is `dist/`, so the same
+ * expression climbed one level too far and produced a manifest pointing at a
+ * file that does not exist. Registration reported success either way, and the
+ * only symptom was an extension that silently never connected.
+ *
+ * So it looks for the file rather than calculating where it ought to be. The
+ * search is short and the answer is checked, which is the difference that
+ * matters: a wrong path here cannot be noticed by the thing that consumes it.
+ */
+function findWrapperDir(): string {
+  const wrapperScriptName = process.platform === 'win32' ? 'run_host.bat' : 'run_host.sh';
+
+  // `dist/` from dist/scripts, `dist/` from dist, then the package root, which
+  // covers a bundled CLI, an unbundled script, and a source checkout.
+  const candidates = [
+    __dirname,
+    path.join(__dirname, '..'),
+    path.join(__dirname, '..', '..'),
+    path.join(__dirname, '..', 'dist'),
+  ];
+
+  for (const dir of candidates) {
+    if (fs.existsSync(path.join(dir, wrapperScriptName))) return dir;
+  }
+
+  throw new Error(
+    `Cannot find ${wrapperScriptName}. Looked in: ${candidates.join(', ')}. ` +
+      `Reinstall with: npm install -g ygs-bridge`,
+  );
+}
+
+/**
  * Get native host startup script file path
  */
 export async function getMainPath(): Promise<string> {
-  try {
-    const packageDistDir = path.join(__dirname, '..');
-    const wrapperScriptName = process.platform === 'win32' ? 'run_host.bat' : 'run_host.sh';
-    const absoluteWrapperPath = path.resolve(packageDistDir, wrapperScriptName);
-    return absoluteWrapperPath;
-  } catch (error) {
-    console.log(colorText('Cannot find global package path, using current directory', 'yellow'));
-    throw error;
-  }
+  const wrapperScriptName = process.platform === 'win32' ? 'run_host.bat' : 'run_host.sh';
+  return path.resolve(findWrapperDir(), wrapperScriptName);
 }
 
 /**
@@ -151,7 +180,10 @@ export function writeNodePathFile(distDir: string, nodeExecPath = process.execPa
  */
 export async function ensureExecutionPermissions(): Promise<void> {
   try {
-    const packageDistDir = path.join(__dirname, '..');
+    // Same resolution as the manifest path, and for the same reason: this
+    // chmods the wrapper, so pointing it at the wrong directory silently
+    // leaves the real one non-executable.
+    const packageDistDir = findWrapperDir();
 
     if (process.platform === 'win32') {
       // Windows platform handling
@@ -293,7 +325,8 @@ function verifyWindowsRegistryEntry(registryKey: string, expectedPath: string): 
 export async function registerUserLevelHostWithNodePath(
   browsers?: BrowserType[],
 ): Promise<boolean> {
-  writeNodePathFile(path.join(__dirname, '..'));
+  // node_path.txt has to land beside the wrapper that reads it.
+  writeNodePathFile(findWrapperDir());
   return tryRegisterUserLevelHost(browsers);
 }
 
@@ -397,7 +430,9 @@ if (process.platform === 'win32') {
   try {
     isAdmin = require('is-admin');
   } catch (error) {
-    console.warn('The is-admin package is missing, so administrator rights cannot be checked on Windows.');
+    console.warn(
+      'The is-admin package is missing, so administrator rights cannot be checked on Windows.',
+    );
     console.warn(error);
   }
 }

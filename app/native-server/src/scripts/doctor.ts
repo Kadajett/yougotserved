@@ -137,8 +137,12 @@ function getCommandInfo(pkg: Record<string, unknown>): { canonical: string; alia
 
 function resolveDistDir(): string {
   // __dirname is dist/scripts when running from compiled code
-  const candidateFromDistScripts = path.resolve(__dirname, '..');
-  const candidateFromSrcScripts = path.resolve(__dirname, '..', '..', 'dist');
+  // `__dirname` first, because the bundler inlines this into dist/cli.js where
+  // the files sit right here. Without it the walk starts one level too high,
+  // finds nothing, and reports three missing files that are not missing.
+  const candidateFromDistScripts = __dirname;
+  const candidateFromSrcScripts = path.resolve(__dirname, '..');
+  const candidateFromRepo = path.resolve(__dirname, '..', '..', 'dist');
 
   const looksLikeDist = (dir: string): boolean => {
     return (
@@ -150,6 +154,7 @@ function resolveDistDir(): string {
 
   if (looksLikeDist(candidateFromDistScripts)) return candidateFromDistScripts;
   if (looksLikeDist(candidateFromSrcScripts)) return candidateFromSrcScripts;
+  if (looksLikeDist(candidateFromRepo)) return candidateFromRepo;
   return candidateFromDistScripts;
 }
 
@@ -681,7 +686,8 @@ export async function collectDoctorReport(options: DoctorOptions): Promise<Docto
       message: `Missing required files (${missingHostFiles.length})`,
       details: { missing: missingHostFiles },
     });
-    nextSteps.push(`Reinstall: npm install -g ${COMMAND_NAME}`);
+    // `ygs` sends them to a different project's package entirely.
+    nextSteps.push('Reinstall: npm install -g ygs-bridge');
   } else {
     checks.push({
       id: 'host.files',
