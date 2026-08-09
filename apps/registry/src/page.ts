@@ -190,6 +190,12 @@ show me what it can reach, and install it if it looks right.</pre>
   <a href="https://github.com/Kadajett/yougotserved#install">Get the extension</a> &middot;
   <a href="https://yougotserved.dev">yougotserved.dev</a> &middot;
   <a href="https://github.com/Kadajett/yougotserved">Source</a> &middot;
+  <!--
+    One line, at the bottom, phrased so nobody has to wonder what it costs.
+    Free is the whole pitch; a tip line that reads like a plan is a worse
+    version of the pitch.
+  -->
+  <a href="/api/tip">Tip jar</a> &middot;
   A pack is data, never code. Read the origins before you install one.
 </footer>
 
@@ -549,3 +555,83 @@ export const DEVICE_PAGE = `<!doctype html>
 </script>
 </body>
 </html>`;
+
+/**
+ * The tip page.
+ *
+ * `/api/tip` answers a machine with x402 JSON, which is the right answer for a
+ * machine and an unreadable one for a person who clicked a link in the footer.
+ * Same URL, same 402, content negotiated: an address someone can copy, and no
+ * wallet connector, because a page that wants to touch your wallet to accept a
+ * tip has misunderstood what a tip is.
+ */
+export function tipPage(address: string, chain: string, token: string): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tip jar &middot; ygs adapters</title>
+<style>
+  :root {
+    --bg: #fbfaf8; --fg: #1b1a17; --muted: #6b6862; --line: #e4e0d8; --red: #b23a25;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161513; --fg: #ecebe7; --muted: #97938b; --line: #2c2a26; --red: #e0674c; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 20px; }
+  h1 { font-size: 1.5rem; margin: 48px 0 4px; }
+  h1 span { color: var(--red); }
+  p { margin: 0 0 16px; }
+  .muted { color: var(--muted); }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem;
+    background: color-mix(in srgb, var(--fg) 6%, transparent);
+    padding: 2px 6px; border-radius: 4px; word-break: break-all;
+  }
+  .addr {
+    display: block; padding: 14px; margin: 8px 0 20px;
+    border: 1px solid var(--line); border-radius: 8px;
+  }
+  dl { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 28px; }
+  dt { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; }
+  dd { margin: 2px 0 14px; }
+  a { color: var(--red); }
+  footer { color: var(--muted); font-size: 0.85rem; margin: 40px 0; }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1><span>ygs</span> tip jar</h1>
+  <p class="muted">Nothing on this registry is behind this page.</p>
+
+  <p>Every adapter, every search and every install works the same whether you tip
+  or not, and there is no plan to change that. This exists because people keep
+  asking where to send something, not because anything here is gated.</p>
+
+  <p>USDC on ${chain}, to:</p>
+  <code class="addr">${address}</code>
+
+  <p class="muted">Send from any wallet or from Coinbase, which withdraws to
+  ${chain} directly. There is nothing to connect and nothing to sign here: this
+  page is a string you copy.</p>
+
+  <dl>
+    <dt>Agents</dt>
+    <dd>This URL answers <code>402</code> with x402 v2 payment requirements as
+    JSON, and in the <code>PAYMENT-REQUIRED</code> header. Nothing is gated, so
+    paying unlocks nothing; <code>optional: true</code> says so in the response.</dd>
+
+    <dt>Token</dt>
+    <dd><code>${token}</code></dd>
+  </dl>
+</main>
+<footer class="wrap"><a href="/">Back to the adapters</a></footer>
+</body>
+</html>`;
+}

@@ -26,9 +26,16 @@ import {
   upsertAccount,
   type Account,
 } from './auth.js';
-import { DEVICE_PAGE, PAGE } from './page.js';
+import { DEVICE_PAGE, PAGE, tipPage } from './page.js';
 import { categoriseOrigins, refreshBlocklist } from './blocked.js';
-import { confirmTip, formatAmount, isTxHash, requirements, tipConfig } from './tips.js';
+import {
+  confirmTip,
+  formatAmount,
+  isTxHash,
+  requirements,
+  requirementsHeader,
+  tipConfig,
+} from './tips.js';
 
 export interface Env {
   DB: D1Database;
@@ -391,53 +398,62 @@ export default {
     }
 
     try {
-      if (path === '/') return new Response(PAGE, { headers: { 'content-type': 'text/html' } });
-      if (path === '/api/health') return json({ ok: true });
-      if (path === '/api/adapters' && request.method === 'GET') return listAdapters(url, env);
-      if (path === '/api/adapters' && request.method === 'POST') return publish(request, env);
+      const response = await route(path, request, url, env);
 
-      const detail = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)$/);
-      if (detail?.[1] && request.method === 'GET') return getAdapter(detail[1], env);
-
-      const rate = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)\/rate$/);
-      if (rate?.[1] && request.method === 'POST') return rateAdapter(rate[1], request, env);
-
-      const pack = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)\/([^/]+)\/pack\.json$/);
-      if (pack?.[1] && pack[2] && request.method === 'GET') {
-        return downloadPack(pack[1], pack[2], env);
+      // RFC 8288's `payment` relation: how a resource says where to pay without
+      // asking anyone to. One line, in one place, so it cannot drift into being
+      // attached to a refusal. Relative, so it reads correctly on workers.dev
+      // and on the custom domain, and absent entirely on a fork that never
+      // configured a tip jar.
+      if (tipConfig(env) && !path.startsWith('/api/tip')) {
+        response.headers.append('link', '</api/tip>; rel="payment"');
       }
-
-      if (path === '/api/resolve' && request.method === 'GET') return resolveHost(url);
-      if (path === '/api/challenge' && request.method === 'GET') return issueChallenge(env);
-
-      if (path.startsWith('/api/auth/') || path === '/auth/device') {
-        return auth(path, request, url, env);
-      }
-      if (path.startsWith('/api/tip')) return tip(path, request, url, env);
-
-      // Everything below is a maintainer's, and answers 404 to anyone else.
-      // A 401 would confirm the routes exist, which is a map of what to attack.
-      if (
-        path === '/api/moderation' ||
-        path.startsWith('/api/moderation/') ||
-        path === '/api/bans'
-      ) {
-        if (!isMaintainer(request, env))
-          return fail(404, `No route for ${request.method} ${path}.`);
-
-        if (path === '/api/moderation' && request.method === 'GET') return heldQueue(env);
-        if (path === '/api/bans' && request.method === 'POST') return manageBan(request, env);
-
-        const hold = path.match(/^\/api\/moderation\/([a-z][a-z0-9_]*)$/);
-        if (hold?.[1] && request.method === 'POST') return decideHold(hold[1], request, env);
-      }
-
-      return fail(404, `No route for ${request.method} ${path}.`);
+      return response;
     } catch (error) {
       return fail(500, error instanceof Error ? error.message : String(error));
     }
   },
 };
+
+async function route(path: string, request: Request, url: URL, env: Env): Promise<Response> {
+  if (path === '/') return new Response(PAGE, { headers: { 'content-type': 'text/html' } });
+  if (path === '/api/health') return json({ ok: true });
+  if (path === '/api/adapters' && request.method === 'GET') return listAdapters(url, env);
+  if (path === '/api/adapters' && request.method === 'POST') return publish(request, env);
+
+  const detail = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)$/);
+  if (detail?.[1] && request.method === 'GET') return getAdapter(detail[1], env);
+
+  const rate = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)\/rate$/);
+  if (rate?.[1] && request.method === 'POST') return rateAdapter(rate[1], request, env);
+
+  const pack = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)\/([^/]+)\/pack\.json$/);
+  if (pack?.[1] && pack[2] && request.method === 'GET') {
+    return downloadPack(pack[1], pack[2], env);
+  }
+
+  if (path === '/api/resolve' && request.method === 'GET') return resolveHost(url);
+  if (path === '/api/challenge' && request.method === 'GET') return issueChallenge(env);
+
+  if (path.startsWith('/api/auth/') || path === '/auth/device') {
+    return auth(path, request, url, env);
+  }
+  if (path.startsWith('/api/tip')) return tip(path, request, url, env);
+
+  // Everything below is a maintainer's, and answers 404 to anyone else. A 401
+  // would confirm the routes exist, which is a map of what to attack.
+  if (path === '/api/moderation' || path.startsWith('/api/moderation/') || path === '/api/bans') {
+    if (!isMaintainer(request, env)) return fail(404, `No route for ${request.method} ${path}.`);
+
+    if (path === '/api/moderation' && request.method === 'GET') return heldQueue(env);
+    if (path === '/api/bans' && request.method === 'POST') return manageBan(request, env);
+
+    const hold = path.match(/^\/api\/moderation\/([a-z][a-z0-9_]*)$/);
+    if (hold?.[1] && request.method === 'POST') return decideHold(hold[1], request, env);
+  }
+
+  return fail(404, `No route for ${request.method} ${path}.`);
+}
 
 /* ------------------------------------------------------------------ *
  * Read
@@ -952,7 +968,24 @@ async function tip(path: string, request: Request, url: URL, env: Env): Promise<
   const origin = local ? url.origin : `https://${url.host}`;
 
   if (path === '/api/tip' && request.method === 'GET') {
-    return json(requirements(config, origin), 402);
+    const payload = requirements(config, origin);
+    // v2 carries the protocol in the header and treats the body as the server's
+    // own business. Both are sent: the header for anything that speaks x402,
+    // the body for whoever is reading this with curl.
+    const header = requirementsHeader(payload);
+
+    // Same URL and same status for a person, who is linked here from the footer
+    // and would otherwise be handed a wall of JSON. The header rides along
+    // either way, so negotiating the body costs a machine nothing.
+    if ((request.headers.get('accept') ?? '').includes('text/html')) {
+      const chain = config.chainId === 8453 ? 'Base' : `chain ${config.chainId}`;
+      return new Response(tipPage(config.payTo, chain, config.token), {
+        status: 402,
+        headers: { 'content-type': 'text/html; charset=utf-8', 'payment-required': header },
+      });
+    }
+
+    return json(payload, 402, { 'payment-required': header });
   }
 
   if (path === '/api/tip/supporters' && request.method === 'GET') {
