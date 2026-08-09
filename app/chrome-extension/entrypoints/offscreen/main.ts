@@ -1,6 +1,6 @@
 import { MessageTarget } from '@/common/message-types';
 import { handleGifMessage } from './gif-encoder';
-import { initKeepalive } from './rr-keepalive';
+import { initKeepalive } from './keepalive';
 
 // Keeps the Record-Replay V3 engine alive while a run is in flight.
 initKeepalive();

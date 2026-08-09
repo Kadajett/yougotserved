@@ -7,28 +7,6 @@
       @change="handleTabChange"
     />
 
-    <!-- Workflows Tab -->
-    <div v-show="activeTab === 'workflows'" class="h-full">
-      <WorkflowsView
-        :flows="filtered"
-        :runs="runs"
-        :triggers="triggers"
-        :only-bound="onlyBound"
-        :open-run-id="openRunId"
-        @refresh="handleWorkflowRefresh"
-        @create="createFlow"
-        @run="run"
-        @edit="edit"
-        @delete="remove"
-        @export="exportFlow"
-        @update:only-bound="onlyBound = $event"
-        @toggle-run="toggleRun"
-        @create-trigger="createTrigger"
-        @edit-trigger="editTrigger"
-        @remove-trigger="removeTrigger"
-      />
-    </div>
-
     <!-- Agent Chat Tab -->
     <div v-show="activeTab === 'agent-chat'" class="h-full">
       <AgentChat />
@@ -292,18 +270,16 @@ import { BACKGROUND_MESSAGE_TYPES } from '@/common/message-types';
 import type { ElementMarker, UpsertMarkerRequest } from '@/common/element-marker-types';
 import AgentChat from './components/AgentChat.vue';
 import SidepanelNavigator from './components/SidepanelNavigator.vue';
-import { WorkflowsView } from './components/workflows';
 import { useAgentTheme } from './composables/useAgentTheme';
-import { useWorkflowsV3, type FlowLite } from './composables/useWorkflowsV3';
 
 // Agent theme for consistent styling
 const { theme: currentTheme, initTheme } = useAgentTheme();
 
 // Tab state - default to AgentChat
-const activeTab = ref<'workflows' | 'element-markers' | 'agent-chat'>('agent-chat');
+const activeTab = ref<'element-markers' | 'agent-chat'>('agent-chat');
 
 // Handle tab change and update URL for deep linking
-function handleTabChange(tab: 'workflows' | 'element-markers' | 'agent-chat') {
+function handleTabChange(tab: 'element-markers' | 'agent-chat') {
   activeTab.value = tab;
   // Update URL params for deep link
   const url = new URL(window.location.href);
@@ -312,13 +288,8 @@ function handleTabChange(tab: 'workflows' | 'element-markers' | 'agent-chat') {
   // Note: loadMarkers is already called by the watch on activeTab, no need to call here
 }
 
-// Workflows state - using V3 data layer
-const workflowsV3 = useWorkflowsV3({ autoConnect: true });
-const { flows, runs, triggers } = workflowsV3;
-const onlyBound = ref(false);
 const search = ref('');
 const currentUrl = ref('');
-const openRunId = ref<string | null>(null);
 
 // Element markers state
 const currentPageUrl = ref('');
@@ -381,112 +352,6 @@ const groupedMarkers = computed(() => {
 });
 
 const totalMarkersCount = computed(() => filteredMarkers.value.length);
-
-const filtered = computed(() => {
-  const list = onlyBound.value ? flows.value.filter(isBoundToCurrent) : flows.value;
-  const q = search.value.trim().toLowerCase();
-  if (!q) return list;
-  return list.filter((f) => {
-    const name = String(f.name || '').toLowerCase();
-    const domain = String(f?.meta?.domain || '').toLowerCase();
-    const tags = ((f?.meta?.tags || []) as any[]).join(',').toLowerCase();
-    return name.includes(q) || domain.includes(q) || tags.includes(q);
-  });
-});
-
-function isBoundToCurrent(f: FlowLite) {
-  try {
-    const bindings = f?.meta?.bindings || [];
-    if (!bindings.length) return false;
-    if (!currentUrl.value) return true;
-    const u = new URL(currentUrl.value);
-    return bindings.some((b: any) => {
-      // Support both V3 'kind' and V2 'type' field names
-      const bindingType = b.kind || b.type;
-      if (bindingType === 'domain') return u.hostname.includes(b.value);
-      if (bindingType === 'path') return u.pathname.startsWith(b.value);
-      if (bindingType === 'url') return (u.href || '').startsWith(b.value);
-      return false;
-    });
-  } catch {
-    return false;
-  }
-}
-
-// V3 Workflows methods - delegating to composable
-async function handleWorkflowRefresh() {
-  await workflowsV3.refresh();
-}
-
-async function exportFlow(id: string) {
-  try {
-    const flowData = await workflowsV3.exportFlow(id);
-    if (flowData) {
-      const blob = new Blob([JSON.stringify(flowData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `workflow-${id}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  } catch (e) {
-    console.warn('Export failed:', e);
-  }
-}
-
-function createTrigger() {
-  // V3 Trigger management not yet implemented
-  alert('V3 Trigger 管理尚未实现，暂时无法创建触发器');
-}
-
-function editTrigger(_id: string) {
-  // V3 Trigger management not yet implemented
-  alert('V3 Trigger 管理尚未实现，暂时无法编辑触发器');
-}
-
-async function removeTrigger(id: string) {
-  await workflowsV3.deleteTrigger(id);
-}
-
-function toggleRun(id: string) {
-  openRunId.value = openRunId.value === id ? null : id;
-}
-
-async function run(id: string) {
-  try {
-    const result = await workflowsV3.runFlow(id);
-    if (!result) console.warn('回放失败');
-  } catch {}
-}
-
-function edit(id: string) {
-  // V3 Builder not yet implemented - show message
-  alert('V3 Builder 尚未实现，暂时无法编辑工作流');
-  // TODO: openBuilder({ flowId: id });
-}
-
-function createFlow() {
-  // V3 Builder not yet implemented - show message
-  alert('V3 Builder 尚未实现，暂时无法创建工作流');
-  // TODO: openBuilder({ newFlow: true });
-}
-
-async function remove(id: string) {
-  try {
-    const ok = confirm('确认删除该工作流？此操作不可恢复');
-    if (!ok) return;
-    await workflowsV3.deleteFlow(id);
-  } catch {}
-}
-
-function openBuilder(opts: { flowId?: string; newFlow?: boolean }) {
-  // Open dedicated builder window for better UX
-  const url = new URL(chrome.runtime.getURL('builder.html'));
-  if (opts.flowId) url.searchParams.set('flowId', opts.flowId);
-  if (opts.newFlow) url.searchParams.set('new', '1');
-  chrome.windows.create({ url: url.toString(), type: 'popup', width: 1280, height: 800 });
-}
 
 // Element markers functions
 function openMarkerEditor(marker?: ElementMarker) {
@@ -739,12 +604,8 @@ onMounted(async () => {
     await loadMarkers();
   } else if (tabParam === 'agent-chat') {
     activeTab.value = 'agent-chat';
-  } else if (tabParam === 'workflows') {
-    activeTab.value = 'workflows';
   }
 
-  // V3 workflows data is auto-refreshed by useWorkflowsV3 composable
-  // No need to manually call refresh here
 
   // V2 push-based refresh is no longer needed - V3 uses event subscription
   // Keeping commented for reference:

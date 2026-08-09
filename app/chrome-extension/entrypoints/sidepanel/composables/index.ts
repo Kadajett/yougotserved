@@ -33,10 +33,6 @@ export type {
 } from './useAgentChatViewRoute';
 
 // RR V3 Composables
-export { useRRV3Rpc } from './useRRV3Rpc';
-export { useRRV3Debugger } from './useRRV3Debugger';
-export type { UseRRV3Rpc, UseRRV3RpcOptions, RpcRequestOptions } from './useRRV3Rpc';
-export type { UseRRV3Debugger, UseRRV3DebuggerOptions } from './useRRV3Debugger';
 
 // Textarea Auto-Resize
 export { useTextareaAutoResize } from './useTextareaAutoResize';

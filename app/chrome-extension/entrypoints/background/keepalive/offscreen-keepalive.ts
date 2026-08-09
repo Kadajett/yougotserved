@@ -16,7 +16,7 @@ import { offscreenManager } from '@/utils/offscreen-manager';
 import {
   RR_V3_KEEPALIVE_PORT_NAME,
   type KeepaliveMessage,
-} from '@/common/rr-v3-keepalive-protocol';
+} from '@/common/keepalive-protocol';
 
 // ==================== Runtime Control Protocol ====================
 
