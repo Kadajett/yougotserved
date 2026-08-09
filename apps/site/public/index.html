@@ -68,6 +68,11 @@
       h1 span {
         color: var(--red);
       }
+      h2 {
+        margin: 2.4rem 0 0.6rem;
+        font-size: 1.15rem;
+        letter-spacing: -0.01em;
+      }
       .tag {
         margin: 4px 0 28px;
         color: var(--muted);
@@ -146,11 +151,74 @@
 
       <p>
         Give a coding agent one tool that does the job, instead of thirty that describe a browser.
-        Tools run in the browser you already signed in to, so there is no second profile and no
-        cookie export.
+        Tools run in the browser you already signed in to. There is no second profile and no cookie
+        export.
       </p>
 
-      <pre>npm install -g ygs-bridge</pre>
+      <p>Every action an agent takes appears on the page, with the arguments it used.</p>
+
+      <h2>Two parts</h2>
+
+      <p>
+        The <b>bridge</b> is a program on your computer. It speaks MCP to your agent. The
+        <b>extension</b> drives Chrome. You need both for the browser tools.
+      </p>
+
+      <p>
+        The Chrome Web Store still reviews the extension. Until the review ends, build it yourself.
+        It takes a minute, and the steps are in the readme.
+      </p>
+
+      <h2>Start with the bridge</h2>
+
+      <p>The bridge alone finds and installs adapters. Nothing opens a tab yet.</p>
+
+      <pre>
+npm install -g ygs-bridge
+ygs register
+ygs doctor</pre>
+
+      <p>Every line of the doctor report must show OK. Then point your agent at it.</p>
+
+      <pre>claude mcp add ygs -- ygs-stdio</pre>
+
+      <h2>Add an adapter</h2>
+
+      <p>
+        An adapter turns one site into a few named tools. It is a JSON file, and never code. It
+        declares the sites it may open, and the host refuses every other address.
+      </p>
+
+      <pre>
+ygs adapter search hacker
+ygs adapter add hackernews</pre>
+
+      <p>The command prints what the adapter can reach, and waits for you to agree.</p>
+
+      <h2>Sign in, if you want to</h2>
+
+      <p>
+        Signing in is optional. Nothing needs an account. It puts your name on your ratings, and
+        holds your adapter names when you publish.
+      </p>
+
+      <pre>ygs account login</pre>
+
+      <p>
+        The command prints a code. You approve it in a browser with GitHub. The bridge never sees
+        your password.
+      </p>
+
+      <h2>Money</h2>
+
+      <p>
+        There is none. No tool, no adapter and no page is behind a payment, and no plan exists to
+        change that.
+      </p>
+
+      <p>
+        A tip jar takes USDC on Base, if you want to send something anyway. It unlocks nothing.
+      </p>
 
       <div class="links">
         <!--
@@ -162,6 +230,7 @@
         >
         <a class="btn" href="https://github.com/Kadajett/yougotserved">Source on GitHub</a>
         <a class="btn" href="https://registry.yougotserved.dev">Adapter registry</a>
+        <a class="btn" href="https://registry.yougotserved.dev/api/tip">Tip jar</a>
         <a class="coffee" href="https://www.buymeacoffee.com/kadajett">
           <img
             alt="Buy me a coffee"
@@ -169,8 +238,6 @@
           />
         </a>
       </div>
-
-      <p>Every action an agent takes appears on the page, with the arguments it used.</p>
 
       <footer>
         <a href="https://github.com/Kadajett/yougotserved/blob/master/PRIVACY.md">Privacy</a> ·
