@@ -1,0 +1,422 @@
+{
+  "format": 1,
+  "id": "reddit",
+  "name": "Reddit",
+  "description": "Read a subreddit, a whole comment thread and your saved list, and save or unsave a post with your own session. Uses old.reddit.com, whose markup has been stable for a decade.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://old.reddit.com"],
+  "signInUrl": "https://old.reddit.com/login",
+  "capabilities": ["navigate", "read", "interact"],
+  "tools": {
+    "subreddit_posts": {
+      "description": "List posts in one subreddit. Choose the listing and, for top and controversial, the window.",
+      "returns": "One record per post: fullname id, title, author, subreddit, score, comment count, link target, permalink, domain, flair, posted time, and saved, which reads \"saved\" when the post is in your saved list and null when it is not.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "subreddit": {
+            "type": "string",
+            "description": "Subreddit name without the r/, e.g. \"rust\"",
+            "pattern": "^[A-Za-z0-9_]{2,30}$"
+          },
+          "sort": {
+            "type": "string",
+            "description": "Which listing to read",
+            "enum": ["hot", "new", "top", "rising", "controversial"],
+            "default": "hot"
+          },
+          "time": {
+            "type": "string",
+            "description": "Window for top and controversial; ignored by the others",
+            "enum": ["hour", "day", "week", "month", "year", "all"],
+            "default": "day"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many posts to return",
+            "default": 15,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["subreddit"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/r/{{subreddit}}/{{sort}}/?t={{time}}",
+          "until": { "selector": "#siteTable, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#siteTable .thing.link",
+            "code": "not_found",
+            "message": "Reddit listed no posts for that subreddit.",
+            "hint": "Check the name, or the subreddit may be private, banned or empty for this window."
+          }
+        },
+        {
+          "extract": {
+            "each": "#siteTable .thing.link:not(.promoted)",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "attr": "data-fullname", "fallback": null },
+              "title": { "selector": "a.title", "fallback": null },
+              "author": { "attr": "data-author", "fallback": null },
+              "subreddit": { "attr": "data-subreddit-prefixed", "fallback": null },
+              "score": { "attr": "data-score", "number": true, "fallback": null },
+              "comments": { "attr": "data-comments-count", "number": true, "fallback": 0 },
+              "url": { "attr": "data-url", "fallback": null },
+              "permalink": { "attr": "data-permalink", "fallback": null },
+              "domain": { "attr": "data-domain", "fallback": null },
+              "flair": { "selector": ".linkflairlabel", "fallback": null },
+              "nsfw": { "attr": "data-nsfw", "fallback": null },
+              "created": { "selector": "time", "attr": "datetime", "fallback": null },
+              "saved": {
+                "attr": "class",
+                "regex": "(?:^|\\s)(saved)(?:\\s|$)",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "read_post": {
+      "description": "Read one post and its top-level comments. Give it the post id, with or without the t3_ prefix.",
+      "returns": "A post record with title, author, score, link target and any self text, then one record per top-level comment with author, score, reply count and body. Replies below the first level are not included; open a comment's permalink to go deeper.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Post id, e.g. \"1ve5j4h\" or \"t3_1ve5j4h\"",
+            "pattern": "^(t3_)?[a-z0-9]{4,12}$"
+          },
+          "sort": {
+            "type": "string",
+            "description": "Comment order",
+            "enum": ["confidence", "top", "new", "controversial", "old", "qa"],
+            "default": "top"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many top-level comments to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["id"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/comments/{{id}}/?sort={{sort}}",
+          "until": { "selector": "#siteTable .thing.link, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#siteTable .thing.link",
+            "code": "not_found",
+            "message": "Reddit showed no post at that id.",
+            "hint": "Use the base-36 id from a listing, e.g. \"1ve5j4h\". The post may also be removed."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "id": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-fullname",
+                "fallback": null
+              },
+              "title": { "selector": "#siteTable .thing.link a.title", "fallback": null },
+              "author": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-author",
+                "fallback": null
+              },
+              "subreddit": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-subreddit-prefixed",
+                "fallback": null
+              },
+              "score": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-score",
+                "number": true,
+                "fallback": null
+              },
+              "comments": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-comments-count",
+                "number": true,
+                "fallback": 0
+              },
+              "url": { "selector": "#siteTable .thing.link", "attr": "data-url", "fallback": null },
+              "permalink": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-permalink",
+                "fallback": null
+              },
+              "created": {
+                "selector": "#siteTable .thing.link time",
+                "attr": "datetime",
+                "fallback": null
+              },
+              "selftext": {
+                "selector": "#siteTable .thing.link .usertext-body .md",
+                "fallback": null
+              },
+              "saved": { "selector": "#siteTable .thing.link.saved", "exists": true }
+            }
+          },
+          "as": "post"
+        },
+        {
+          "extract": {
+            "each": ".commentarea > .sitetable > .thing.comment",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "attr": "data-fullname", "fallback": null },
+              "author": { "attr": "data-author", "fallback": null },
+              "score": {
+                "selector": ".tagline .score.unvoted",
+                "attr": "title",
+                "number": true,
+                "fallback": null
+              },
+              "replyCount": { "attr": "data-replies", "number": true, "fallback": 0 },
+              "created": { "selector": ".tagline time", "attr": "datetime", "fallback": null },
+              "permalink": { "attr": "data-permalink", "fallback": null },
+              "body": { "selector": ".usertext-body .md", "fallback": null }
+            }
+          },
+          "as": "comments"
+        }
+      ]
+    },
+    "search": {
+      "description": "Search Reddit. The query takes Reddit's own operators, so \"subreddit:rust borrow checker\" or \"author:kobzol\" work here.",
+      "returns": "One record per post: fullname id, title, url, subreddit, author, score, comment count and posted time.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"subreddit:rust async runtime\""
+          },
+          "sort": {
+            "type": "string",
+            "description": "Result order",
+            "enum": ["relevance", "hot", "top", "new", "comments"],
+            "default": "relevance"
+          },
+          "time": {
+            "type": "string",
+            "description": "How far back to look",
+            "enum": ["hour", "day", "week", "month", "year", "all"],
+            "default": "all"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 15,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/search?q={{query|url}}&sort={{sort}}&t={{time}}",
+          "until": { "selector": ".search-result-link, .content" }
+        },
+        {
+          "assert": {
+            "selector": ".search-result-link",
+            "code": "not_found",
+            "message": "Reddit returned no search results.",
+            "hint": "Try fewer words, widen the time window, or drop a subreddit: filter."
+          }
+        },
+        {
+          "extract": {
+            "each": ".search-result-link",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "attr": "data-fullname", "fallback": null },
+              "title": { "selector": "a.search-title", "fallback": null },
+              "url": { "selector": "a.search-title", "prop": "href", "fallback": null },
+              "subreddit": { "selector": ".search-subreddit-link", "fallback": null },
+              "author": { "selector": ".author", "fallback": null },
+              "score": { "selector": ".search-score", "number": true, "fallback": null },
+              "comments": { "selector": ".search-comments", "number": true, "fallback": null },
+              "created": { "selector": "time", "attr": "datetime", "fallback": null }
+            }
+          }
+        }
+      ]
+    },
+    "saved_items": {
+      "description": "Read your own saved list. Needs a signed-in Reddit session in this browser.",
+      "returns": "One record per saved item: id, whether it is a post or a comment, title, subreddit, author, permalink, saved body text and time.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "description": "How many items to return",
+            "default": 25,
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/saved",
+          "until": { "selector": "#siteTable, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#header-bottom-right .logout",
+            "code": "not_authenticated",
+            "message": "Reddit did not show a signed-in header.",
+            "hint": "Sign in to old.reddit.com in this browser, then try again."
+          }
+        },
+        {
+          "extract": {
+            "each": "#siteTable .thing",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "attr": "data-fullname", "fallback": null },
+              "kind": { "attr": "data-type", "fallback": null },
+              "title": { "selector": "a.title", "fallback": null },
+              "subreddit": { "attr": "data-subreddit-prefixed", "fallback": null },
+              "author": { "attr": "data-author", "fallback": null },
+              "permalink": { "attr": "data-permalink", "fallback": null },
+              "created": { "selector": "time", "attr": "datetime", "fallback": null },
+              "body": { "selector": ".usertext-body .md", "fallback": null }
+            }
+          }
+        }
+      ]
+    },
+    "save_post": {
+      "description": "Save a post to your own Reddit saved list. Private to your account and reversible with unsave_post.",
+      "returns": "The post id and its saved state after the click, so you can confirm it took.",
+      "risk": "write",
+      "capabilities": ["navigate", "read", "interact"],
+      "requiresConfirm": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Post id, e.g. \"1ve5j4h\" or \"t3_1ve5j4h\"",
+            "pattern": "^(t3_)?[a-z0-9]{4,12}$"
+          }
+        },
+        "required": ["id"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/comments/{{id}}/",
+          "until": { "selector": "#siteTable .thing.link, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#siteTable .thing.link li.save-button a",
+            "code": "not_authenticated",
+            "message": "Reddit showed no save control on that post.",
+            "hint": "Sign in to old.reddit.com in this browser, or check the post id."
+          }
+        },
+        {
+          "click": "#siteTable .thing.link:not(.saved) li.save-button a",
+          "optional": true,
+          "until": { "selector": "#siteTable .thing.link.saved" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "id": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-fullname",
+                "fallback": null
+              },
+              "title": { "selector": "#siteTable .thing.link a.title", "fallback": null },
+              "saved": { "selector": "#siteTable .thing.link.saved", "exists": true }
+            }
+          }
+        }
+      ]
+    },
+    "unsave_post": {
+      "description": "Remove a post from your own Reddit saved list.",
+      "returns": "The post id and its saved state after the click, so you can confirm it took.",
+      "risk": "write",
+      "capabilities": ["navigate", "read", "interact"],
+      "requiresConfirm": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Post id, e.g. \"1ve5j4h\" or \"t3_1ve5j4h\"",
+            "pattern": "^(t3_)?[a-z0-9]{4,12}$"
+          }
+        },
+        "required": ["id"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/comments/{{id}}/",
+          "until": { "selector": "#siteTable .thing.link, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#siteTable .thing.link li.save-button a",
+            "code": "not_authenticated",
+            "message": "Reddit showed no save control on that post.",
+            "hint": "Sign in to old.reddit.com in this browser, or check the post id."
+          }
+        },
+        {
+          "click": "#siteTable .thing.link.saved li.save-button a",
+          "optional": true,
+          "until": { "selectorGone": "#siteTable .thing.link.saved" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "id": {
+                "selector": "#siteTable .thing.link",
+                "attr": "data-fullname",
+                "fallback": null
+              },
+              "title": { "selector": "#siteTable .thing.link a.title", "fallback": null },
+              "saved": { "selector": "#siteTable .thing.link.saved", "exists": true }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

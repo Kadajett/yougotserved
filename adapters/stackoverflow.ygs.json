@@ -1,0 +1,183 @@
+{
+  "format": 1,
+  "id": "stackoverflow",
+  "name": "Stack Overflow",
+  "description": "Browse a tag's questions and read a whole question thread as data, instead of loading the page into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://stackoverflow.com"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "questions_by_tag": {
+      "description": "List questions under one tag. Sort by newest, most votes, most active, or unanswered. Stack Overflow's own search box is captcha-gated for automated browsers, so use a tag here and use a web search adapter for keyword lookups.",
+      "returns": "One record per question: id, title, url, excerpt, vote and answer and view counts, whether an answer is accepted, tags, and the asked time.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string",
+            "description": "Tag slug, e.g. \"rust\" or \"typescript\""
+          },
+          "sort": {
+            "type": "string",
+            "description": "Which listing to read",
+            "enum": ["Newest", "Votes", "Active", "Unanswered", "Frequent"],
+            "default": "Votes"
+          },
+          "page": {
+            "type": "integer",
+            "description": "Result page, 1-based",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 25
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many questions to return",
+            "default": 15,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["tag"]
+      },
+      "steps": [
+        {
+          "goto": "https://stackoverflow.com/questions/tagged/{{tag|url}}?tab={{sort}}&page={{page}}",
+          "until": { "selector": "#questions .s-post-summary" }
+        },
+        {
+          "assert": {
+            "selector": "#questions .s-post-summary",
+            "code": "not_found",
+            "message": "Stack Overflow listed no questions for that tag.",
+            "hint": "Check the tag slug, or drop the page number. A captcha page also lands here; open stackoverflow.com yourself and clear it."
+          }
+        },
+        {
+          "extract": {
+            "each": "#questions .s-post-summary",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "attr": "data-post-id", "fallback": null },
+              "title": { "selector": ".s-post-summary--content-title a", "fallback": null },
+              "url": {
+                "selector": ".s-post-summary--content-title a",
+                "prop": "href",
+                "fallback": null
+              },
+              "excerpt": { "selector": ".s-post-summary--content-excerpt", "fallback": null },
+              "votes": {
+                "selector": ".s-post-summary--stats-item__emphasized .s-post-summary--stats-item-number",
+                "number": true,
+                "fallback": 0
+              },
+              "answers": {
+                "selector": ".s-post-summary--stats .s-post-summary--stats-item:nth-child(2) .s-post-summary--stats-item-number",
+                "number": true,
+                "fallback": 0
+              },
+              "views": {
+                "selector": ".s-post-summary--stats .s-post-summary--stats-item:nth-child(3) .s-post-summary--stats-item-number",
+                "number": true,
+                "fallback": 0
+              },
+              "accepted": {
+                "selector": ".s-post-summary--stats-item.has-accepted-answer",
+                "exists": true
+              },
+              "asked": { "selector": "span.relativetime", "attr": "title", "fallback": null },
+              "tags": { "selector": ".s-post-summary--meta-tags a", "all": true }
+            }
+          }
+        }
+      ]
+    },
+    "read_question": {
+      "description": "Read one question and its answers. Give it the numeric question id; the slug is not needed.",
+      "returns": "A question record, then one record per answer with score, author, accepted flag and full text.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Question id, e.g. \"24158114\""
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many answers to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 30
+          }
+        },
+        "required": ["id"]
+      },
+      "steps": [
+        {
+          "goto": "https://stackoverflow.com/questions/{{id|url}}",
+          "until": { "selector": "#question .js-post-body" }
+        },
+        {
+          "assert": {
+            "selector": "#question .js-post-body",
+            "code": "not_found",
+            "message": "Stack Overflow showed no question at that id.",
+            "hint": "Check the id, or clear a captcha by opening stackoverflow.com yourself."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "title": { "selector": "#question-header h1 a", "fallback": null },
+              "url": { "selector": "#question-header h1 a", "prop": "href", "fallback": null },
+              "score": { "selector": "#question .js-vote-count", "number": true, "fallback": 0 },
+              "asked": {
+                "selector": "#question .post-signature.owner .relativetime",
+                "attr": "title",
+                "fallback": null
+              },
+              "author": {
+                "selector": "#question .post-signature.owner .user-details a",
+                "fallback": null
+              },
+              "views": {
+                "selector": "div[title$='times']",
+                "attr": "title",
+                "fallback": null
+              },
+              "answerCount": { "selector": "#answers-header h2", "number": true, "fallback": 0 },
+              "tags": { "selector": "#question .post-tag", "all": true },
+              "body": { "selector": "#question .js-post-body", "fallback": null }
+            }
+          },
+          "as": "question"
+        },
+        {
+          "extract": {
+            "each": "#answers .answer",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "attr": "data-answerid", "fallback": null },
+              "score": { "selector": ".js-vote-count", "number": true, "fallback": 0 },
+              "accepted": {
+                "selector": ".js-accepted-answer-indicator:not(.d-none)",
+                "exists": true
+              },
+              "author": { "selector": ".post-signature .user-details a", "fallback": null },
+              "when": { "selector": "span.relativetime", "attr": "title", "fallback": null },
+              "body": { "selector": ".js-post-body", "fallback": null }
+            }
+          },
+          "as": "answers"
+        }
+      ]
+    }
+  }
+}

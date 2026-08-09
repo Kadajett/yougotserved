@@ -1,0 +1,212 @@
+{
+  "format": 1,
+  "id": "arxiv",
+  "name": "arXiv",
+  "description": "Search arXiv, read a paper's abstract page, and skim a category's recent submissions, without loading whole pages into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://arxiv.org"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search_papers": {
+      "description": "Search arXiv. Choose whether the terms are matched against everything, the title, the abstract, or the author list.",
+      "returns": "One record per paper: arXiv id, title, authors, the full abstract, the submission line, any author comments, and the abstract and PDF urls.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"speculative decoding\""
+          },
+          "field": {
+            "type": "string",
+            "description": "Which field the terms match against",
+            "enum": ["all", "title", "abstract", "author", "comments"],
+            "default": "all"
+          },
+          "start": {
+            "type": "integer",
+            "description": "Skip this many results, for paging. arXiv pages by 50.",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 2000
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://arxiv.org/search/?query={{query|url}}&searchtype={{field}}&start={{start}}",
+          "until": { "selector": "li.arxiv-result, .content" }
+        },
+        {
+          "assert": {
+            "selector": "li.arxiv-result",
+            "code": "not_found",
+            "message": "arXiv returned no papers for that query.",
+            "hint": "Try fewer words, or widen the field to \"all\"."
+          }
+        },
+        {
+          "extract": {
+            "each": "li.arxiv-result",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "selector": ".list-title a", "fallback": null },
+              "url": { "selector": ".list-title a", "prop": "href", "fallback": null },
+              "pdf": { "selector": "a[href*='/pdf/']", "prop": "href", "fallback": null },
+              "title": { "selector": "p.title", "fallback": null },
+              "authors": { "selector": "p.authors a", "all": true },
+              "abstract": {
+                "selector": ".abstract-full",
+                "regex": "^([\\s\\S]*?)(?:\\s*△ Less)?$",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "submitted": { "selector": "p.is-size-7", "fallback": null },
+              "comments": {
+                "selector": ".comments",
+                "regex": "^(?:Comments:\\s*)?([\\s\\S]*)$",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "read_abstract": {
+      "description": "Read one paper's abstract page. Give it the arXiv id, with or without a version suffix.",
+      "returns": "A single record: id, title, authors, the full abstract, subjects, author comments, DOI and journal reference when present, the submission line, the version history and the PDF url.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "arXiv id, e.g. \"1706.03762\" or \"cs/0501001\"",
+            "pattern": "^[A-Za-z.-]*/?[0-9]{4}\\.?[0-9]{4,5}(v[0-9]+)?$"
+          }
+        },
+        "required": ["id"]
+      },
+      "steps": [
+        {
+          "goto": "https://arxiv.org/abs/{{id}}",
+          "until": { "selector": "blockquote.abstract, .content" }
+        },
+        {
+          "assert": {
+            "selector": "blockquote.abstract",
+            "code": "not_found",
+            "message": "arXiv showed no abstract at that id.",
+            "hint": "Check the id. Find it with search_papers if you are unsure."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "id": { "selector": ".header-breadcrumbs #abs, .arxivid a", "fallback": null },
+              "title": {
+                "selector": "h1.title",
+                "regex": "^(?:Title:\\s*)?([\\s\\S]*)$",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "authors": { "selector": ".authors a", "all": true },
+              "abstract": {
+                "selector": "blockquote.abstract",
+                "regex": "^(?:Abstract:\\s*)?([\\s\\S]*)$",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "subjects": { "selector": ".subjects", "fallback": null },
+              "comments": { "selector": ".comments", "fallback": null },
+              "doi": { "selector": ".doi a", "fallback": null },
+              "journalRef": { "selector": ".jref", "fallback": null },
+              "submitted": { "selector": ".dateline", "fallback": null },
+              "versions": { "selector": ".submission-history", "fallback": null },
+              "pdf": { "selector": "a.download-pdf", "prop": "href", "fallback": null }
+            }
+          }
+        }
+      ]
+    },
+    "recent_in_category": {
+      "description": "Skim a category's newest submissions. Give it an arXiv category code such as \"cs.LG\" or \"math.NT\".",
+      "returns": "One record per paper: arXiv id, abstract url, title, authors and subject list. Use read_abstract for the text.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "category": {
+            "type": "string",
+            "description": "Category code, e.g. \"cs.LG\"",
+            "pattern": "^[a-zA-Z-]+(\\.[a-zA-Z-]+)?$"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many papers to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["category"]
+      },
+      "steps": [
+        {
+          "goto": "https://arxiv.org/list/{{category}}/recent",
+          "until": { "selector": "#articles > dt, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#articles > dt",
+            "code": "not_found",
+            "message": "arXiv listed no recent papers for that category.",
+            "hint": "Check the category code, e.g. \"cs.LG\", \"stat.ML\", \"math.NT\"."
+          }
+        },
+        {
+          "extract": {
+            "each": "#articles > dt",
+            "limit": "{{limit}}",
+            "fields": {
+              "id": { "selector": "a[href^='/abs/']", "fallback": null },
+              "url": { "selector": "a[href^='/abs/']", "prop": "href", "fallback": null },
+              "title": {
+                "selector": ".list-title",
+                "from": "next",
+                "regex": "^(?:Title:\\s*)?([\\s\\S]*)$",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "authors": { "selector": ".list-authors a", "from": "next", "all": true },
+              "subjects": {
+                "selector": ".list-subjects",
+                "from": "next",
+                "regex": "^(?:Subjects:\\s*)?([\\s\\S]*)$",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

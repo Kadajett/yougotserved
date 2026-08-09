@@ -1,0 +1,191 @@
+{
+  "format": 1,
+  "id": "pypi",
+  "name": "PyPI",
+  "description": "Search the Python package index, read a project page, and list its release history, without loading whole pages into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://pypi.org"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search_packages": {
+      "description": "Search PyPI. Supports the site's own filters in the query, such as \"httpx\" or \"async client\".",
+      "returns": "One record per package: name, url, description and the release date shown on the card.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"async http client\""
+          },
+          "page": {
+            "type": "integer",
+            "description": "Result page, 1-based",
+            "default": 1,
+            "minimum": 1,
+            "maximum": 50
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://pypi.org/search/?q={{query|url}}&page={{page}}",
+          "until": { "selector": "a.package-snippet, #content form" }
+        },
+        {
+          "assert": {
+            "selector": "a.package-snippet",
+            "code": "not_found",
+            "message": "PyPI returned no packages for that query.",
+            "hint": "Try fewer or broader words, or drop the page number."
+          }
+        },
+        {
+          "extract": {
+            "each": "a.package-snippet",
+            "limit": "{{limit}}",
+            "fields": {
+              "name": { "selector": ".package-snippet__name", "fallback": null },
+              "url": { "prop": "href", "fallback": null },
+              "description": { "selector": ".package-snippet__description", "fallback": null },
+              "released": {
+                "selector": ".package-snippet__created time",
+                "attr": "datetime",
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "package_info": {
+      "description": "Read one PyPI project page. Give it the exact distribution name.",
+      "returns": "A package record with name, current version, summary, install command and canonical url, then the sidebar facts as label and value pairs: project links, key dates, maintainers, license, Python requirement, extras and classifiers.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Distribution name, e.g. \"httpx\"" }
+        },
+        "required": ["name"]
+      },
+      "steps": [
+        {
+          "goto": "https://pypi.org/project/{{name|url}}/",
+          "until": { "selector": ".project-header__name, #content" }
+        },
+        {
+          "assert": {
+            "selector": ".project-header__name",
+            "code": "not_found",
+            "message": "PyPI showed no project page for that name.",
+            "hint": "Check the spelling with search_packages. Distribution names use hyphens, not underscores."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "name": {
+                "selector": ".project-header__name",
+                "regex": "^(\\S+)",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "version": {
+                "selector": ".project-header__name",
+                "regex": "^\\S+\\s+(.+)$",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "summary": { "selector": ".project-header__summary", "fallback": null },
+              "install": { "selector": "#pip-command", "fallback": null },
+              "url": { "selector": "link[rel='canonical']", "attr": "href", "fallback": null }
+            }
+          },
+          "as": "package"
+        },
+        {
+          "extract": {
+            "each": ".sidebar-section h2.sidebar-section__title",
+            "limit": 12,
+            "fields": { "label": {}, "value": { "from": "next", "fallback": null } }
+          },
+          "as": "metadata"
+        },
+        {
+          "extract": {
+            "each": ".sidebar-section a[href^='http']",
+            "limit": 15,
+            "fields": { "text": {}, "url": { "prop": "href", "fallback": null } }
+          },
+          "as": "links"
+        }
+      ]
+    },
+    "release_history": {
+      "description": "List a project's releases, newest first, with the date each went out.",
+      "returns": "One record per release: version, the full version label including any pre-release marker, publish date and url.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Distribution name, e.g. \"httpx\"" },
+          "limit": {
+            "type": "integer",
+            "description": "How many releases to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["name"]
+      },
+      "steps": [
+        {
+          "goto": "https://pypi.org/project/{{name|url}}/#history",
+          "until": { "selector": "a.release__card, .project-header__name" }
+        },
+        {
+          "assert": {
+            "selector": "a.release__card",
+            "code": "not_found",
+            "message": "PyPI listed no releases for that project.",
+            "hint": "Check the name with search_packages."
+          }
+        },
+        {
+          "extract": {
+            "each": "a.release__card",
+            "limit": "{{limit}}",
+            "fields": {
+              "version": {
+                "selector": ".release__version",
+                "regex": "^(\\S+)",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "label": { "selector": ".release__version", "fallback": null },
+              "released": { "selector": "time", "attr": "datetime", "fallback": null },
+              "url": { "prop": "href", "fallback": null }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

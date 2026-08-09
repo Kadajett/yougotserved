@@ -1,0 +1,176 @@
+{
+  "format": 1,
+  "id": "wikipedia",
+  "name": "Wikipedia",
+  "description": "Search Wikipedia and read an article's lead, section outline and infobox as data, instead of loading the whole page into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://*.wikipedia.org"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search": {
+      "description": "Full-text search across a Wikipedia language edition.",
+      "returns": "One record per hit: title, url, a matched snippet, and the size and last-edited line.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"transformer neural network\""
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language edition subdomain, e.g. \"en\", \"de\", \"simple\"",
+            "default": "en",
+            "pattern": "^[a-z]{2,12}(-[a-z]{2,8})?$"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://{{lang}}.wikipedia.org/w/index.php?search={{query|url}}&title=Special:Search&fulltext=1",
+          "until": { "selector": "ul.mw-search-results, .mw-search-nonefound, #firstHeading" }
+        },
+        {
+          "assert": {
+            "selector": "ul.mw-search-results > li",
+            "code": "not_found",
+            "message": "Wikipedia returned no search results.",
+            "hint": "Try fewer words. An exact title match redirects straight to the article, in which case use read_article instead."
+          }
+        },
+        {
+          "extract": {
+            "each": "ul.mw-search-results > li",
+            "limit": "{{limit}}",
+            "fields": {
+              "title": { "selector": ".mw-search-result-heading a", "fallback": null },
+              "url": {
+                "selector": ".mw-search-result-heading a",
+                "prop": "href",
+                "fallback": null
+              },
+              "snippet": { "selector": ".searchresult", "fallback": null },
+              "meta": { "selector": ".mw-search-result-data", "fallback": null }
+            }
+          }
+        }
+      ]
+    },
+    "read_article": {
+      "description": "Read one article. Give it the exact page title, with underscores or spaces. Returns the lead paragraphs, the section outline, and the infobox rows rather than the whole page.",
+      "returns": "An article record, then the lead paragraphs, then the section headings with anchors and levels, then the infobox label and value pairs. Infobox values can carry stray template CSS on rows that embed a list.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Page title, e.g. \"Rust (programming language)\""
+          },
+          "lang": {
+            "type": "string",
+            "description": "Language edition subdomain, e.g. \"en\", \"de\", \"simple\"",
+            "default": "en",
+            "pattern": "^[a-z]{2,12}(-[a-z]{2,8})?$"
+          },
+          "paragraphs": {
+            "type": "integer",
+            "description": "How many lead paragraphs to return",
+            "default": 3,
+            "minimum": 1,
+            "maximum": 40
+          },
+          "sections": {
+            "type": "integer",
+            "description": "How many section headings to return",
+            "default": 40,
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": ["title"]
+      },
+      "steps": [
+        {
+          "goto": "https://{{lang}}.wikipedia.org/wiki/{{title|url}}",
+          "until": { "selector": "#mw-content-text" }
+        },
+        {
+          "assert": {
+            "selector": "#mw-content-text .mw-parser-output p",
+            "code": "not_found",
+            "message": "Wikipedia showed no article body at that title.",
+            "hint": "Titles are case-sensitive after the first letter. Find the exact one with search."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "title": { "selector": "#firstHeading", "fallback": null },
+              "shortDescription": { "selector": ".shortdescription", "fallback": null },
+              "isRedirectFrom": { "selector": ".mw-redirectedfrom a", "fallback": null },
+              "lastModified": { "selector": "#footer-info-lastmod", "fallback": null }
+            }
+          },
+          "as": "article"
+        },
+        {
+          "extract": {
+            "each": "#mw-content-text .mw-parser-output p:not(.mw-empty-elt)",
+            "limit": "{{paragraphs}}",
+            "fields": { "text": {} }
+          },
+          "as": "lead"
+        },
+        {
+          "extract": {
+            "each": "#mw-content-text .mw-heading",
+            "limit": "{{sections}}",
+            "fields": {
+              "heading": { "selector": "h2, h3, h4, h5", "fallback": null },
+              "anchor": { "selector": "h2, h3, h4, h5", "attr": "id", "fallback": null },
+              "level": {
+                "attr": "class",
+                "regex": "mw-heading(\\d)",
+                "regexGroup": 1,
+                "number": true,
+                "fallback": null
+              }
+            }
+          },
+          "as": "sections"
+        },
+        {
+          "extract": {
+            "each": "table.infobox tr:has(th.infobox-label)",
+            "limit": 30,
+            "fields": {
+              "label": { "selector": "th.infobox-label", "fallback": null },
+              "value": {
+                "selector": "td.infobox-data",
+                "regex": "(?:.*\\})?([\\s\\S]*)$",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          },
+          "as": "infobox"
+        }
+      ]
+    }
+  }
+}
