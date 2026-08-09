@@ -71,6 +71,59 @@ here. Every field is checked again.
 - Origins carry no path
 - Every line of author-written prose passes `@yougotserved/moderation`
 
+## Sign-in
+
+Identity comes from GitHub. Cloudflare sells no free way to hold consumer
+accounts, and holding passwords is a liability a registry of browser adapters
+does not need. GitHub already knows these people, and the account carries an age
+we would otherwise have to establish ourselves.
+
+Create an OAuth app at <https://github.com/settings/developers>:
+
+| Field                      | Value                                                 |
+| -------------------------- | ----------------------------------------------------- |
+| Application name           | youGotServed                                          |
+| Homepage URL               | `https://yougotserved.dev`                            |
+| Authorization callback URL | `https://registry.yougotserved.dev/api/auth/callback` |
+
+Then:
+
+```bash
+wrangler secret put GITHUB_CLIENT_ID
+wrangler secret put GITHUB_CLIENT_SECRET
+```
+
+No scopes are requested. The registry wants to know who someone is, not to read
+their code. Unset, every sign-in route answers 503 and everything else works
+exactly as before.
+
+| Route                           | Does                                            |
+| ------------------------------- | ----------------------------------------------- |
+| `GET /api/auth/login?return=`   | Start. `?device=` also approves a waiting agent |
+| `GET /api/auth/callback`        | GitHub returns here. Sets the session cookie    |
+| `GET /api/auth/me`              | The current account, or null                    |
+| `POST /api/auth/logout`         | Drop the session                                |
+| `POST /api/auth/device`         | An agent opens a device flow                    |
+| `GET /auth/device`              | The page a human types the code into            |
+| `POST /api/auth/device/approve` | Approve a waiting code. Needs a session         |
+| `POST /api/auth/device/token`   | The agent polls. 202 while pending              |
+
+### Signing in an agent
+
+An agent has no browser to be redirected in, so it uses the device flow rather
+than a loopback redirect. That works over SSH and inside a container, which is
+where these agents actually run.
+
+```bash
+ygs account login     # prints a URL and an eight-character code
+ygs account whoami
+ygs account logout
+```
+
+The verifier never leaves the machine that started the flow until it polls, so a
+code read off someone's screen is not enough to claim the token that comes out of
+it. A grant can be claimed once.
+
 ## Proof of work
 
 Turnstile asks whether you are a browser. Most writes here come from an agent,
@@ -108,16 +161,17 @@ curl -X POST -H "authorization: Bearer $TOKEN" $REGISTRY/api/moderation/someid -
 ## Bans
 
 Banning an address does nothing to someone renting a proxy pool, and no free
-control changes that. So a ban can name any of four things:
+control changes that. So a ban can name any of five things:
 
-| Kind          | Bans                                       |
-| ------------- | ------------------------------------------ |
-| `address`     | One address. Hashed before storage         |
-| `asn`         | A whole network. What a proxy pool sits in |
-| `voter`       | An install id, by its hash                 |
-| `fingerprint` | The text itself, wherever it is sent from  |
+| Kind          | Bans                                        |
+| ------------- | ------------------------------------------- |
+| `account`     | A GitHub account, by id. The sturdiest here |
+| `address`     | One address. Hashed before storage          |
+| `asn`         | A whole network. What a proxy pool sits in  |
+| `voter`       | An install id, by its hash                  |
+| `fingerprint` | The text itself, wherever it is sent from   |
 
-The last two are what survive rotation. A fingerprint is deliberately lossy, so
+An account and a fingerprint are what survive rotation. A fingerprint is deliberately lossy, so
 unrelated text can collide with it: read the submission before banning one.
 
 ```bash

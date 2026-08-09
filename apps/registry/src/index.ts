@@ -7,7 +7,26 @@
  * rule against remotely hosted code.
  */
 
-import { PAGE } from './page.js';
+import {
+  approveDevice,
+  authorizeUrl,
+  currentAccount,
+  exchangeCode,
+  fetchUser,
+  isConfigured,
+  issueSession,
+  makeState,
+  pollDevice,
+  readState,
+  safeReturn,
+  sessionCookie,
+  signOut,
+  startDevice,
+  sweep,
+  upsertAccount,
+  type Account,
+} from './auth.js';
+import { DEVICE_PAGE, PAGE } from './page.js';
 
 export interface Env {
   DB: D1Database;
@@ -29,8 +48,17 @@ export interface Env {
    * proves itself with work instead. See `proved`.
    */
   TURNSTILE_SECRET?: string;
-  /** Signs proof-of-work challenges. Falls back to VOTER_SALT. */
+  /** Signs proof-of-work challenges, sessions, and device grants. Falls back to VOTER_SALT. */
   CHALLENGE_SECRET?: string;
+  /**
+   * GitHub OAuth app, which is where identity comes from.
+   *
+   * Unset, every sign-in route answers 503 and the rest of the registry works
+   * exactly as before. Anonymous publishing was never open, so nothing that
+   * used to work stops working.
+   */
+  GITHUB_CLIENT_ID?: string;
+  GITHUB_CLIENT_SECRET?: string;
 }
 
 /**
@@ -349,6 +377,10 @@ export default {
 
       if (path === '/api/resolve' && request.method === 'GET') return resolveHost(url);
       if (path === '/api/challenge' && request.method === 'GET') return issueChallenge(env);
+
+      if (path.startsWith('/api/auth/') || path === '/auth/device') {
+        return auth(path, request, url, env);
+      }
 
       // Everything below is a maintainer's, and answers 404 to anyone else.
       // A 401 would confirm the routes exist, which is a map of what to attack.
@@ -757,6 +789,182 @@ async function isHeld(id: string, env: Env): Promise<boolean> {
 }
 
 /* ------------------------------------------------------------------ *
+ * Sign in
+ * ------------------------------------------------------------------ */
+
+/**
+ * Every sign-in route.
+ *
+ * Kept in one function because they only make sense as a sequence, and reading
+ * them in order is the fastest way to see that the sequence is sound.
+ */
+async function auth(path: string, request: Request, url: URL, env: Env): Promise<Response> {
+  if (!isConfigured(env)) {
+    return fail(
+      503,
+      'Sign-in is not configured on this deployment.',
+      'wrangler secret put GITHUB_CLIENT_ID, then GITHUB_CLIENT_SECRET.',
+    );
+  }
+
+  // Forced to https for anything that is not a local dev server. `url.origin`
+  // reflects whatever scheme the request arrived on, and a sign-in URL handed
+  // out over plain http is a sign-in URL that can be rewritten in transit.
+  const local = /^(localhost|127\.0\.0\.1)(:|$)/.test(url.host);
+  const origin = local ? url.origin : `https://${url.host}`;
+  const redirectUri = `${origin}/api/auth/callback`;
+
+  // Start. The device code rides in the signed state, so approving a waiting
+  // agent and signing in are one round trip rather than two.
+  if (path === '/api/auth/login' && request.method === 'GET') {
+    const state = await makeState(
+      env,
+      safeReturn(url.searchParams.get('return')),
+      (url.searchParams.get('device') ?? '').trim().toUpperCase().slice(0, 9),
+    );
+    return new Response(null, {
+      status: 302,
+      headers: { location: authorizeUrl(env, state, redirectUri) },
+    });
+  }
+
+  if (path === '/api/auth/callback' && request.method === 'GET') {
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    if (!code || !state) return fail(400, 'That sign-in did not come back complete.');
+
+    const unpacked = await readState(env, state);
+    if (!unpacked) return fail(400, 'That sign-in link expired or was not ours. Try again.');
+
+    const accessToken = await exchangeCode(env, code, redirectUri);
+    if (!accessToken) return fail(502, 'GitHub would not exchange that code.');
+
+    const user = await fetchUser(accessToken);
+    if (!user?.id) return fail(502, 'GitHub would not say who that is.');
+
+    // Checked before the account row is written, so a banned account cannot
+    // keep refreshing its own last_seen.
+    const refusal = await banned(env, [`account:${user.id}`]);
+    if (refusal) return fail(403, refusal);
+
+    const account = await upsertAccount(env, user);
+    const session = await issueSession(env, account.id);
+    await sweep(env);
+
+    const destination = unpacked.deviceCode
+      ? `/auth/device?code=${encodeURIComponent(unpacked.deviceCode)}`
+      : unpacked.returnTo;
+
+    return new Response(null, {
+      status: 302,
+      headers: {
+        location: destination,
+        'set-cookie': sessionCookie(
+          session.secret,
+          Math.floor((session.expiresAt - Date.now()) / 1000),
+        ),
+      },
+    });
+  }
+
+  if (path === '/api/auth/logout' && request.method === 'POST') {
+    await signOut(request, env);
+    return json({ ok: true }, 200, { 'set-cookie': sessionCookie('', 0) });
+  }
+
+  if (path === '/api/auth/me' && request.method === 'GET') {
+    const account = await currentAccount(request, env);
+    return account ? json({ account: shapeAccount(account) }) : json({ account: null });
+  }
+
+  /* The device flow, for a caller with no browser. */
+
+  if (path === '/api/auth/device' && request.method === 'POST') {
+    // Rate limited on its own, because this is the one write here that costs a
+    // row and needs no proof of anything.
+    if (await throttled(request, env, 'device', 20, 3600)) {
+      return fail(429, 'Too many sign-in attempts from here in the last hour.');
+    }
+
+    const grant = await startDevice(env);
+    return json({
+      userCode: grant.userCode,
+      deviceCode: grant.deviceCode,
+      verifier: grant.verifier,
+      verificationUri: `${origin}/auth/device`,
+      expiresAt: grant.expiresAt,
+      interval: 5,
+    });
+  }
+
+  // The page a human lands on to approve a waiting agent. Signed out, it sends
+  // them through GitHub first and comes back here.
+  if (path === '/auth/device' && request.method === 'GET') {
+    const account = await currentAccount(request, env);
+    if (!account) {
+      const code = (url.searchParams.get('code') ?? '').trim().toUpperCase().slice(0, 9);
+      return new Response(null, {
+        status: 302,
+        headers: { location: `/api/auth/login?device=${encodeURIComponent(code)}` },
+      });
+    }
+    return new Response(DEVICE_PAGE, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+  }
+
+  if (path === '/api/auth/device/approve' && request.method === 'POST') {
+    const account = await currentAccount(request, env);
+    if (!account) return fail(401, 'Sign in first.');
+
+    const refusal = await banned(env, [`account:${account.id}`]);
+    if (refusal) return fail(403, refusal);
+
+    const body = (await request.json().catch(() => ({}))) as { userCode?: string };
+    if (!body.userCode) return fail(400, 'Send the code the agent is showing you.');
+
+    const approved = await approveDevice(env, body.userCode, account.id);
+    if (!approved) return fail(404, 'That code is not waiting, or it expired. Ask for a new one.');
+
+    return json({ ok: true, approvedAs: account.login });
+  }
+
+  if (path === '/api/auth/device/token' && request.method === 'POST') {
+    const body = (await request.json().catch(() => ({}))) as {
+      deviceCode?: string;
+      verifier?: string;
+    };
+    if (!body.deviceCode || !body.verifier) return fail(400, 'Send { deviceCode, verifier }.');
+
+    const result = await pollDevice(env, body.deviceCode, body.verifier);
+    if (result.status === 'ready') {
+      return json({ status: 'ready', token: result.token, account: shapeAccount(result.account) });
+    }
+    // 202 for pending, so a polling client can branch on the status line alone.
+    return json({ status: result.status }, result.status === 'pending' ? 202 : 400);
+  }
+
+  return fail(404, `No route for ${request.method} ${path}.`);
+}
+
+/**
+ * What the registry says about an account.
+ *
+ * Age is given as a day count rather than a date. It is the one spam signal
+ * that cannot be manufactured on demand, and a count is what a reader of the
+ * moderation queue actually wants.
+ */
+function shapeAccount(account: Account): Record<string, unknown> {
+  return {
+    id: account.id,
+    login: account.login,
+    name: account.name ?? undefined,
+    avatarUrl: account.avatar_url ?? undefined,
+    accountAgeDays: account.github_created_at
+      ? Math.floor((Date.now() - account.github_created_at) / 86400_000)
+      : undefined,
+  };
+}
+
+/* ------------------------------------------------------------------ *
  * Moderate
  * ------------------------------------------------------------------ */
 
@@ -829,7 +1037,10 @@ async function manageBan(request: Request, env: Env): Promise<Response> {
     lift?: boolean;
   };
 
-  const kinds = ['address', 'asn', 'voter', 'fingerprint'];
+  // `account` is the strongest of these by a distance. An address rotates, an
+  // install id is chosen by the caller, and a fingerprint describes one message.
+  // A GitHub account costs time to age and cannot be minted per request.
+  const kinds = ['address', 'asn', 'voter', 'fingerprint', 'account'];
   if (!body.kind || !kinds.includes(body.kind)) {
     return fail(400, `kind must be one of: ${kinds.join(', ')}.`);
   }

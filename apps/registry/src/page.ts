@@ -389,3 +389,129 @@ load('');
 </script>
 </body>
 </html>`;
+
+/**
+ * The page a person lands on to approve a waiting agent.
+ *
+ * Deliberately one thing on one screen. Someone arrives here mid-task, from a
+ * terminal, having been told to type eight characters, and the only useful
+ * design is the one that lets them do that and leave. The code is prefilled
+ * when the agent passed it through the sign-in round trip, so the common path
+ * is a single click.
+ *
+ * The palette is copied from the listing page rather than shared, which is a
+ * duplication the TanStack rewrite is meant to collapse. Worth naming here so
+ * it gets collapsed rather than copied a third time.
+ */
+export const DEVICE_PAGE = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Approve an agent — youGotServed</title>
+<link rel="icon" href="https://yougotserved.dev/icon.png">
+<style>
+  :root {
+    --ink: #33291c; --muted: #6d6152; --red: #b3271e;
+    --page: #faf6ee; --card: #fff; --line: #e4d8c3; --sunk: #f6f0e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #f3ece0; --muted: #b3a894; --red: #ff6b5e;
+      --page: #1c1710; --card: #262017; --line: #3b3226; --sunk: #201a12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: 24px;
+    background: var(--page); color: var(--ink);
+    font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 26rem; background: var(--card);
+    border: 1px solid var(--line); border-radius: 14px; padding: 28px;
+  }
+  h1 { margin: 0 0 6px; font-size: 20px; }
+  p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 12px 14px; font: 600 20px/1.2 ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: .12em; text-align: center; text-transform: uppercase;
+    background: var(--sunk); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 10px;
+  }
+  button {
+    width: 100%; margin-top: 14px; padding: 12px 14px; font: 600 15px/1 inherit;
+    background: var(--ink); color: var(--page);
+    border: 0; border-radius: 10px; cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .note { margin: 18px 0 0; font-size: 13px; }
+  .ok { color: var(--ink); }
+  .bad { color: var(--red); }
+  .who { font-size: 13px; color: var(--muted); margin: 0 0 18px; }
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>Approve an agent</h1>
+  <p>An agent on your machine is waiting for permission to act as you. Check the
+     code it printed matches the one below before you approve it.</p>
+  <p class="who" id="who"></p>
+  <form id="form">
+    <label for="code">Code from the agent</label>
+    <input id="code" name="code" autocomplete="off" spellcheck="false"
+           placeholder="ABCD-EFGH" maxlength="9" required>
+    <button type="submit" id="go">Approve</button>
+  </form>
+  <p class="note" id="note"></p>
+</main>
+<script>
+  var params = new URLSearchParams(location.search);
+  var input = document.getElementById('code');
+  var note = document.getElementById('note');
+  var go = document.getElementById('go');
+  input.value = (params.get('code') || '').toUpperCase();
+
+  fetch('/api/auth/me')
+    .then(function (r) { return r.json(); })
+    .then(function (body) {
+      if (body.account) {
+        document.getElementById('who').textContent =
+          'Signed in as ' + body.account.login + '. The agent will act as you.';
+      }
+    })
+    .catch(function () {});
+
+  document.getElementById('form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    go.disabled = true;
+    note.className = 'note';
+    note.textContent = 'Approving...';
+
+    fetch('/api/auth/device/approve', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ userCode: input.value.trim().toUpperCase() }),
+    })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, body: b }; }); })
+      .then(function (result) {
+        if (result.ok) {
+          note.className = 'note ok';
+          note.textContent = 'Approved as ' + result.body.approvedAs +
+            '. Go back to your terminal, it will pick this up in a few seconds.';
+        } else {
+          note.className = 'note bad';
+          note.textContent = (result.body.error && result.body.error.message) || 'That did not work.';
+          go.disabled = false;
+        }
+      })
+      .catch(function () {
+        note.className = 'note bad';
+        note.textContent = 'Could not reach the registry.';
+        go.disabled = false;
+      });
+  });
+</script>
+</body>
+</html>`;

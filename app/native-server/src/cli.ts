@@ -345,6 +345,61 @@ adapter
     }
   });
 
+/*
+ * Account commands.
+ *
+ * Signing in is optional today. Rating and installing work without it; what an
+ * account buys is being able to publish under a name, and being bannable by
+ * something sturdier than an address.
+ */
+const account = program.command('account').description('Sign this machine in to the registry');
+
+account
+  .command('login')
+  .description('Sign in through GitHub, using a code you approve in a browser')
+  .action(async () => {
+    try {
+      const { deviceLogin } = await import('./adapters/account.js');
+
+      const stored = await deviceLogin(
+        (start) => {
+          console.log(`\n  Open  ${colorText(start.verificationUri, 'green')}`);
+          console.log(`  Code  ${colorText(start.userCode, 'green')}\n`);
+          console.log(colorText('Waiting for approval...', 'yellow'));
+        },
+        (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      );
+
+      console.log(colorText(`\nSigned in as ${stored.login}.`, 'green'));
+    } catch (error: any) {
+      console.error(colorText(error.message, 'red'));
+      process.exit(1);
+    }
+  });
+
+account
+  .command('whoami')
+  .description('Show which account this machine is signed in as')
+  .action(async () => {
+    const { whoami } = await import('./adapters/account.js');
+    const who = await whoami();
+
+    if (!who) {
+      console.log('Not signed in. Try: ygs account login');
+      return;
+    }
+    const age = who.accountAgeDays ? `, GitHub account ${who.accountAgeDays} days old` : '';
+    console.log(`${colorText(who.login, 'green')}${age}`);
+  });
+
+account
+  .command('logout')
+  .description('Forget the token on this machine')
+  .action(async () => {
+    const { forgetAccount } = await import('./adapters/account.js');
+    console.log(forgetAccount() ? 'Signed out.' : 'Was not signed in.');
+  });
+
 /** A yes/no on stdin. Returns false when there is no terminal to ask. */
 function confirm(question: string): Promise<boolean> {
   if (!process.stdin.isTTY) return Promise.resolve(false);

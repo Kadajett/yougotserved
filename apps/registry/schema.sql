@@ -92,10 +92,80 @@ CREATE TABLE IF NOT EXISTS moderation (
 -- back and never finds out why.
 CREATE TABLE IF NOT EXISTS bans (
   subject    TEXT PRIMARY KEY,            -- "<kind>:<value>"
-  kind       TEXT NOT NULL,               -- address | asn | voter | fingerprint
+  kind       TEXT NOT NULL,               -- address | asn | voter | fingerprint | account
   reason     TEXT NOT NULL DEFAULT '',
   created_at INTEGER NOT NULL,
   expires_at INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS idx_bans_kind ON bans(kind);
+
+-- Who someone is, borrowed from GitHub.
+--
+-- Cloudflare sells no free way to hold consumer accounts, and building one
+-- means holding passwords, which is a liability worth avoiding for a registry
+-- of browser adapters. GitHub already knows these people: this is a developer
+-- tool, its authors have accounts there, and the account carries an age we did
+-- not have to establish. `id` is GitHub's numeric id rather than the login,
+-- because a login can be renamed and handed to somebody else.
+--
+-- `github_created_at` is kept because it is the one spam signal that cannot be
+-- manufactured on demand. An account made this morning is not the same claim as
+-- one made in 2014.
+CREATE TABLE IF NOT EXISTS accounts (
+  id                INTEGER PRIMARY KEY,   -- GitHub user id
+  login             TEXT NOT NULL,
+  name              TEXT,
+  avatar_url        TEXT,
+  github_created_at INTEGER,
+  first_seen        INTEGER NOT NULL,
+  last_seen         INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_accounts_login ON accounts(login);
+
+-- Browser sessions. The token is stored as a hash, so the table is not a set of
+-- working credentials for whoever reads it.
+CREATE TABLE IF NOT EXISTS sessions (
+  token      TEXT PRIMARY KEY,             -- salted hash of the cookie value
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  created_at INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_account ON sessions(account_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expiry  ON sessions(expires_at);
+
+-- The device flow, for an agent that has no browser to be redirected in.
+--
+-- The CLI asks for a code, prints a short one for the human to type into a page
+-- they are already logged into, then polls. Chosen over a loopback redirect
+-- because it works over SSH and in a container, which is where these agents
+-- actually run.
+--
+-- `verifier_hash` binds the poll to the process that started the flow, so a
+-- device code seen over someone's shoulder is not enough to claim the token.
+CREATE TABLE IF NOT EXISTS device_grants (
+  device_code   TEXT PRIMARY KEY,          -- hashed
+  user_code     TEXT NOT NULL,             -- short, typed by a human
+  verifier_hash TEXT NOT NULL,
+  account_id    INTEGER,                   -- null until someone approves it
+  created_at    INTEGER NOT NULL,
+  expires_at    INTEGER NOT NULL,
+  claimed_at    INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_user_code ON device_grants(user_code);
+CREATE INDEX IF NOT EXISTS idx_device_expiry    ON device_grants(expires_at);
+
+-- Long-lived tokens an agent uses in place of a session cookie.
+CREATE TABLE IF NOT EXISTS agent_tokens (
+  token      TEXT PRIMARY KEY,             -- salted hash
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  label      TEXT NOT NULL DEFAULT '',
+  created_at INTEGER NOT NULL,
+  last_used  INTEGER,
+  expires_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_tokens_account ON agent_tokens(account_id);
