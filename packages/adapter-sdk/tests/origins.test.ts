@@ -56,26 +56,6 @@ describe('parseOriginPattern', () => {
     }
   });
 
-  // A fence exists to say where an adapter may go. A shortener's product is not
-  // telling you that, so fencing to one grants everywhere by way of one hop.
-  it('rejects link shorteners, at the domain and under it', () => {
-    for (const pattern of [
-      'bit.ly',
-      'https://tinyurl.com',
-      '*.t.co',
-      'https://s.lnkd.in',
-      'mybrand.short.io',
-    ]) {
-      expect(() => parseOriginPattern(pattern)).toThrow(/link shortener/);
-    }
-  });
-
-  // Unlike the private-host rules. Developing against your own machine is a real
-  // thing to want; pointing a fence at bit.ly is not, at any stage.
-  it('does not let allowPrivate open a shortener back up', () => {
-    expect(() => parseOriginPattern('bit.ly', { allowPrivate: true })).toThrow(/link shortener/);
-  });
-
   it('still allows a real site', () => {
     expect(parseOriginPattern('https://*.myworkdayjobs.com').host).toBe('myworkdayjobs.com');
     expect(parseOriginPattern('news.ycombinator.com').host).toBe('news.ycombinator.com');

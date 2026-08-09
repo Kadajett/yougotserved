@@ -59,59 +59,6 @@ const PRIVATE_SUFFIXES = [
 ];
 
 /**
- * Link shorteners, refused as origins.
- *
- * An origin fence works by checking a URL before navigation. Point it at a
- * service whose only function is to forward and the check passes, then the
- * browser lands somewhere nobody declared and nobody reviewed. A fence around a
- * redirector is not a weak fence, it is not a fence, which puts this in the same
- * class as "an address is not a site" rather than "we do not care for this
- * domain".
- *
- * Shorteners also do nothing for the reader. Their whole product is hiding where
- * a link goes; an adapter's whole promise is that you can see where it goes
- * before you install it. Both cannot be true at once.
- *
- * This lives in the SDK because the SDK is what both sides run. `validatePack`
- * is called by the registry on publish, so the server refuses these, and by the
- * bridge on install and on every load, so a pack that never went through the
- * registry is refused too. Server-side alone would be the version with the
- * bypass: hand someone a pack as a file and there is no server in the path.
- *
- * `@yougotserved/moderation` carries the same list for a different input. This
- * one decides whether a pack may exist; that one decides whether a description
- * is honest about where its links go. The SDK ships standalone, so it does not
- * import from a workspace package to share them.
- */
-const REDIRECTORS = new Set([
-  'bit.ly',
-  'tinyurl.com',
-  't.co',
-  'goo.gl',
-  'ow.ly',
-  'buff.ly',
-  'is.gd',
-  'cutt.ly',
-  'rebrand.ly',
-  'shorturl.at',
-  'rb.gy',
-  'bit.do',
-  'tiny.cc',
-  'lnkd.in',
-  't.ly',
-  'shorte.st',
-  'adf.ly',
-  'bc.vc',
-  'linktr.ee',
-  'trib.al',
-  'dlvr.it',
-  'ift.tt',
-  'shrtco.de',
-  'short.io',
-  'snip.ly',
-]);
-
-/**
  * Refuses a host that names somewhere private rather than a site.
  *
  * This is the check that was missing, and it mattered more than it looks. The
@@ -147,24 +94,6 @@ function assertPublicHost(host: string, pattern: string): void {
       );
     }
   }
-}
-
-/**
- * Refuses a host that only forwards.
- *
- * Not gated behind {@link OriginOptions.allowPrivate}, unlike the checks above.
- * That flag exists so a pack can be developed against a machine on your desk,
- * which is a real thing to want; pointing a fence at bit.ly is not, at any stage.
- */
-function assertNotRedirector(host: string, pattern: string): void {
-  const labels = host.split('.');
-  const registrable = labels.slice(-2).join('.');
-  if (!REDIRECTORS.has(host) && !REDIRECTORS.has(registrable)) return;
-
-  throw new OriginError(
-    `Origin "${pattern}" is a link shortener, which forwards somewhere this adapter has not ` +
-      `declared. Fencing to it fences nothing. Declare the site the links actually lead to.`,
-  );
 }
 
 export interface OriginOptions {
@@ -218,7 +147,6 @@ export function parseOriginPattern(pattern: string, options: OriginOptions = {})
     );
   }
   if (!options.allowPrivate) assertPublicHost(url.hostname, pattern);
-  assertNotRedirector(url.hostname, pattern);
 
   return {
     source: pattern.trim(),
