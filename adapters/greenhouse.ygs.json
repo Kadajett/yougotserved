@@ -3,7 +3,7 @@
   "id": "greenhouse",
   "name": "Greenhouse",
   "description": "Inspect and submit public Greenhouse job applications with your own browser session.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://github.com/Kadajett/yougotserved",
   "origins": [
     "https://job-boards.greenhouse.io",
@@ -11,7 +11,10 @@
     "https://boards.greenhouse.io"
   ],
   "capabilities": ["navigate", "read", "interact", "upload"],
-  "uploads": { "allowedExtensions": ["pdf", "doc", "docx"], "maxBytes": 10485760 },
+  "uploads": {
+    "allowedExtensions": ["pdf", "doc", "docx"],
+    "maxBytes": 10485760
+  },
   "tools": {
     "inspect_application": {
       "description": "Read a Greenhouse application form. Returns every field with its id, label and control type.",
@@ -22,7 +25,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "url": { "type": "string", "description": "Public Greenhouse job URL" },
+          "url": {
+            "type": "string",
+            "description": "Public Greenhouse job URL"
+          },
           "limit": {
             "type": "integer",
             "description": "Maximum fields to return",
@@ -34,10 +40,22 @@
         "required": ["url"]
       },
       "steps": [
-        { "goto": "{{url}}", "until": { "selector": "#application-form, form" } },
+        {
+          "goto": "{{url}}",
+          "until": {
+            "selector": "#application-form"
+          }
+        },
+        {
+          "click": "button[aria-label='Apply']",
+          "optional": true,
+          "until": {
+            "selector": "#application-form"
+          }
+        },
         {
           "assert": {
-            "selector": "#application-form, form",
+            "selector": "#application-form",
             "code": "not_found",
             "message": "Greenhouse showed no application form.",
             "hint": "The posting may be closed."
@@ -45,21 +63,38 @@
         },
         {
           "extract": {
-            "each": ".field, [class*='field']",
+            "each": "#application-form .field-wrapper, #application-form .eeoc__question__wrapper",
             "limit": "{{limit}}",
             "fields": {
               "fieldId": {
-                "selector": "input:not([type='hidden']), textarea, select",
+                "selector": "input[id], textarea[id], select[id]",
                 "attr": "id",
                 "fallback": null
               },
-              "label": { "selector": "label", "fallback": null },
-              "inputType": { "selector": "input", "attr": "type", "fallback": null },
-              "isTextarea": { "selector": "textarea", "exists": true },
-              "isSelect": { "selector": "select", "exists": true },
-              "isFile": { "selector": "input[type='file']", "exists": true },
+              "label": {
+                "selector": "label",
+                "fallback": null
+              },
+              "inputType": {
+                "selector": "input",
+                "attr": "type",
+                "fallback": null
+              },
+              "role": {
+                "selector": "input, textarea, select",
+                "attr": "role",
+                "fallback": null
+              },
+              "hasTextarea": {
+                "selector": "textarea",
+                "exists": true
+              },
+              "hasFile": {
+                "selector": "input[type='file']",
+                "exists": true
+              },
               "required": {
-                "selector": "input[required], textarea[required], select[required]",
+                "selector": "[aria-required='true'], input[required], textarea[required]",
                 "exists": true
               }
             }
@@ -77,21 +112,48 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "url": { "type": "string", "description": "Public Greenhouse job URL" },
-          "firstName": { "type": "string", "description": "Applicant first name" },
-          "lastName": { "type": "string", "description": "Applicant last name" },
-          "preferredName": { "type": "string", "description": "Preferred first name" },
-          "email": { "type": "string", "description": "Applicant email" },
-          "phone": { "type": "string", "description": "Applicant phone" },
-          "resume": { "type": "object", "description": "Resume file to attach" },
+          "url": {
+            "type": "string",
+            "description": "Public Greenhouse job URL"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Applicant first name"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Applicant last name"
+          },
+          "preferredName": {
+            "type": "string",
+            "description": "Preferred first name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Applicant email"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Applicant phone"
+          },
+          "resume": {
+            "type": "object",
+            "description": "Resume file to attach"
+          },
           "answers": {
             "type": "array",
             "description": "One entry per extra question, from inspect_application",
             "items": {
               "type": "object",
               "properties": {
-                "fieldId": { "type": "string", "description": "Field id from inspect" },
-                "value": { "type": "string", "description": "The answer" }
+                "fieldId": {
+                  "type": "string",
+                  "description": "Field id from inspect"
+                },
+                "value": {
+                  "type": "string",
+                  "description": "The answer"
+                }
               },
               "required": ["fieldId", "value"]
             }
@@ -100,7 +162,19 @@
         "required": ["url", "firstName", "lastName", "email", "resume"]
       },
       "steps": [
-        { "goto": "{{url}}", "until": { "selector": "#first_name" } },
+        {
+          "goto": "{{url}}",
+          "until": {
+            "selector": "#application-form"
+          }
+        },
+        {
+          "click": "button[aria-label='Apply']",
+          "optional": true,
+          "until": {
+            "selector": "#first_name"
+          }
+        },
         {
           "assert": {
             "selector": "#first_name",
@@ -109,12 +183,34 @@
             "hint": "The posting may be closed."
           }
         },
-        { "fill": "#first_name", "value": "{{firstName}}" },
-        { "fill": "#last_name", "value": "{{lastName}}" },
-        { "fill": "#preferred_name", "value": "{{preferredName}}", "optional": true },
-        { "fill": "#email", "value": "{{email}}" },
-        { "fill": "#phone", "value": "{{phone}}", "optional": true },
-        { "upload": { "selector": "#resume", "file": "{{resume}}" } },
+        {
+          "fill": "#first_name",
+          "value": "{{firstName}}"
+        },
+        {
+          "fill": "#last_name",
+          "value": "{{lastName}}"
+        },
+        {
+          "fill": "#preferred_name",
+          "value": "{{preferredName}}",
+          "optional": true
+        },
+        {
+          "fill": "#email",
+          "value": "{{email}}"
+        },
+        {
+          "fill": "#phone",
+          "value": "{{phone}}",
+          "optional": true
+        },
+        {
+          "upload": {
+            "selector": "#resume",
+            "file": "{{resume}}"
+          }
+        },
         {
           "forEach": "{{answers}}",
           "as": "answer",
@@ -132,10 +228,20 @@
           ]
         },
         {
-          "click": "button[type='submit'], input[type='submit']",
-          "until": { "selectorGone": "#first_name" }
+          "click": "#application-form button[type='submit']",
+          "until": {
+            "selectorGone": "#first_name"
+          }
         },
-        { "extract": { "fields": { "confirmation": { "selector": "main, body" } } } }
+        {
+          "extract": {
+            "fields": {
+              "confirmation": {
+                "selector": "main, body"
+              }
+            }
+          }
+        }
       ]
     }
   }

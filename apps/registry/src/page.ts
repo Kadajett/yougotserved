@@ -256,18 +256,25 @@ async function detailFor(id) {
 /**
  * Groups by registrable domain, then by host inside it.
  *
- * An adapter is filed under its first origin so it appears once. The host
- * heading is dropped when a domain has only one, where it would just repeat.
+ * An adapter is filed under every host it declares, not just the first. The
+ * question this page answers is "what covers the host I am on", and an adapter
+ * that reaches three Greenhouse hosts is the answer for all three. That means
+ * one adapter can appear more than once inside its domain, which is correct.
+ *
+ * The host heading is dropped when a domain has only one, where it would just
+ * repeat the line above it.
  */
 function group(adapters) {
   const domains = new Map();
   for (const a of adapters) {
-    const host = hostOf((a.origins || [])[0]);
-    const domain = domainOf(host);
-    if (!domains.has(domain)) domains.set(domain, new Map());
-    const hosts = domains.get(domain);
-    if (!hosts.has(host)) hosts.set(host, []);
-    hosts.get(host).push(a);
+    const seen = new Set((a.origins || []).map(hostOf));
+    for (const host of (seen.size ? seen : new Set(['']))) {
+      const domain = domainOf(host);
+      if (!domains.has(domain)) domains.set(domain, new Map());
+      const hosts = domains.get(domain);
+      if (!hosts.has(host)) hosts.set(host, []);
+      hosts.get(host).push(a);
+    }
   }
 
   return [...domains.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([domain, hosts]) => {

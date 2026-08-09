@@ -3,11 +3,14 @@
   "id": "workable",
   "name": "Workable",
   "description": "Inspect and submit public Workable job applications with your own browser session.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "homepage": "https://github.com/Kadajett/yougotserved",
   "origins": ["https://apply.workable.com"],
   "capabilities": ["navigate", "read", "interact", "upload"],
-  "uploads": { "allowedExtensions": ["pdf", "doc", "docx"], "maxBytes": 10485760 },
+  "uploads": {
+    "allowedExtensions": ["pdf", "doc", "docx"],
+    "maxBytes": 10485760
+  },
   "tools": {
     "inspect_application": {
       "description": "Read a Workable application form. Returns the standard controls and each custom question.",
@@ -18,7 +21,10 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "url": { "type": "string", "description": "Public Workable job URL" },
+          "url": {
+            "type": "string",
+            "description": "Workable apply URL, ending in /apply/"
+          },
           "limit": {
             "type": "integer",
             "description": "Maximum questions to return",
@@ -30,7 +36,12 @@
         "required": ["url"]
       },
       "steps": [
-        { "goto": "{{url}}", "until": { "selector": "main form" } },
+        {
+          "goto": "{{url}}",
+          "until": {
+            "selector": "main form"
+          }
+        },
         {
           "assert": {
             "selector": "main form",
@@ -42,10 +53,22 @@
         {
           "extract": {
             "fields": {
-              "firstName": { "selector": "input[data-ui='firstname']", "exists": true },
-              "lastName": { "selector": "input[data-ui='lastname']", "exists": true },
-              "email": { "selector": "input[data-ui='email']", "exists": true },
-              "phone": { "selector": "input[name='phone']", "exists": true },
+              "firstName": {
+                "selector": "input[data-ui='firstname']",
+                "exists": true
+              },
+              "lastName": {
+                "selector": "input[data-ui='lastname']",
+                "exists": true
+              },
+              "email": {
+                "selector": "input[data-ui='email']",
+                "exists": true
+              },
+              "phone": {
+                "selector": "input[name='phone']",
+                "exists": true
+              },
               "resume": {
                 "selector": "form input[type='file'][data-ui='resume']",
                 "exists": true
@@ -69,7 +92,10 @@
                 "fallback": null
               },
               "label": {},
-              "required": { "selector": "input[required], textarea[required]", "exists": true }
+              "required": {
+                "selector": "input[required], textarea[required]",
+                "exists": true
+              }
             }
           },
           "as": "questions"
@@ -86,21 +112,48 @@
       "inputSchema": {
         "type": "object",
         "properties": {
-          "url": { "type": "string", "description": "Public Workable job URL" },
-          "firstName": { "type": "string", "description": "Applicant first name" },
-          "lastName": { "type": "string", "description": "Applicant last name" },
-          "email": { "type": "string", "description": "Applicant email" },
-          "phone": { "type": "string", "description": "Applicant phone" },
-          "coverLetter": { "type": "string", "description": "Cover letter text" },
-          "resume": { "type": "object", "description": "Resume file to attach" },
+          "url": {
+            "type": "string",
+            "description": "Workable apply URL, ending in /apply/"
+          },
+          "firstName": {
+            "type": "string",
+            "description": "Applicant first name"
+          },
+          "lastName": {
+            "type": "string",
+            "description": "Applicant last name"
+          },
+          "email": {
+            "type": "string",
+            "description": "Applicant email"
+          },
+          "phone": {
+            "type": "string",
+            "description": "Applicant phone"
+          },
+          "coverLetter": {
+            "type": "string",
+            "description": "Cover letter text"
+          },
+          "resume": {
+            "type": "object",
+            "description": "Resume file to attach"
+          },
           "answers": {
             "type": "array",
             "description": "One entry per custom question, from inspect_application",
             "items": {
               "type": "object",
               "properties": {
-                "fieldName": { "type": "string", "description": "Field name from inspect" },
-                "value": { "type": "string", "description": "The answer" }
+                "fieldName": {
+                  "type": "string",
+                  "description": "Field name from inspect"
+                },
+                "value": {
+                  "type": "string",
+                  "description": "The answer"
+                }
               },
               "required": ["fieldName", "value"]
             }
@@ -109,7 +162,12 @@
         "required": ["url", "firstName", "lastName", "email", "resume"]
       },
       "steps": [
-        { "goto": "{{url}}", "until": { "selector": "input[data-ui='firstname']" } },
+        {
+          "goto": "{{url}}",
+          "until": {
+            "selector": "input[data-ui='firstname']"
+          }
+        },
         {
           "assert": {
             "selector": "form button[type='submit'][data-ui='apply-button']",
@@ -124,10 +182,23 @@
             "file": "{{resume}}"
           }
         },
-        { "fill": "input[data-ui='firstname']", "value": "{{firstName}}" },
-        { "fill": "input[data-ui='lastname']", "value": "{{lastName}}" },
-        { "fill": "input[data-ui='email']", "value": "{{email}}" },
-        { "fill": "input[name='phone']", "value": "{{phone}}", "optional": true },
+        {
+          "fill": "input[data-ui='firstname']",
+          "value": "{{firstName}}"
+        },
+        {
+          "fill": "input[data-ui='lastname']",
+          "value": "{{lastName}}"
+        },
+        {
+          "fill": "input[data-ui='email']",
+          "value": "{{email}}"
+        },
+        {
+          "fill": "input[name='phone']",
+          "value": "{{phone}}",
+          "optional": true
+        },
         {
           "fill": "textarea[data-ui='cover_letter']",
           "value": "{{coverLetter}}",
@@ -146,9 +217,19 @@
         },
         {
           "click": "form button[type='submit'][data-ui='apply-button']",
-          "until": { "selectorGone": "input[data-ui='firstname']" }
+          "until": {
+            "selectorGone": "input[data-ui='firstname']"
+          }
         },
-        { "extract": { "fields": { "confirmation": { "selector": "main, body" } } } }
+        {
+          "extract": {
+            "fields": {
+              "confirmation": {
+                "selector": "main, body"
+              }
+            }
+          }
+        }
       ]
     }
   }
