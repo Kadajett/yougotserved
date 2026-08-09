@@ -55,13 +55,13 @@ tools do, and for nothing else.
 - `<all_urls>`: adapters are written for sites you choose, so the tools must be
   able to reach the page you are on
 - `nativeMessaging`: to speak to the local host
-- `tabs`, `scripting`, `webNavigation`: to read and drive the page you point a
+- `tabs`, `activeTab`, `scripting`: to find, read and drive the page you point a
   tool at
-- `downloads`, `webRequest`, `storage`, `alarms`, `offscreen`, `contextMenus`,
-  `sidePanel`, `activeTab`: used by single tools and by the panel
+- `webNavigation`: to start a persistent user script at the right moment
+- `downloads`, `webRequest`, `storage`, `offscreen`: used by single tools
 
-The extension does not ask for `history` or `bookmarks`. Those were removed,
-with the tools that used them.
+That is the whole list. The extension does not ask for `history`, `bookmarks`,
+`sidePanel`, `contextMenus` or `alarms`, and the tools that used them are gone.
 
 ## Contact
 
