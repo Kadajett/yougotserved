@@ -288,3 +288,146 @@ describe('templated counts in an extract step', () => {
     expect('limit' in (seen[0] as object)).toBe(false);
   });
 });
+
+describe('optional write steps', () => {
+  it('skips a fill when the field is not on the page', async () => {
+    const page = stubSession({ exists: vi.fn(async () => false) });
+    await runSteps(page, [{ fill: '#phone', value: '{{phone}}', optional: true }], {
+      params: { phone: '555' },
+    });
+    expect(page.fill).not.toHaveBeenCalled();
+  });
+
+  it('skips a fill when the caller left the parameter out', async () => {
+    const page = stubSession();
+    await runSteps(page, [{ fill: '#phone', value: '{{phone}}', optional: true }], { params: {} });
+    expect(page.fill).not.toHaveBeenCalled();
+  });
+
+  it('still fills when both the field and the value are there', async () => {
+    const page = stubSession();
+    await runSteps(page, [{ fill: '#phone', value: '{{phone}}', optional: true }], {
+      params: { phone: '555' },
+    });
+    expect(page.fill).toHaveBeenCalledWith('#phone', '555', {
+      submit: undefined,
+      typed: undefined,
+    });
+  });
+
+  it('a required fill with a missing parameter is still an error', async () => {
+    const page = stubSession();
+    await expect(
+      runSteps(page, [{ fill: '#phone', value: '{{phone}}' }], { params: {} }),
+    ).rejects.toThrow(/not a parameter/);
+  });
+
+  it('skips an optional upload when no file was given', async () => {
+    const page = stubSession();
+    await runSteps(page, [{ upload: { selector: '#cv', file: '{{resume}}', optional: true } }], {
+      params: {},
+    });
+    expect(page.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe('forEach', () => {
+  const answerSteps: Step[] = [
+    {
+      forEach: '{{answers}}',
+      as: 'answer',
+      steps: [{ fill: '[name="{{answer.fieldName}}"]', value: '{{answer.value}}' }],
+    },
+  ];
+
+  it('runs the inner steps once per entry, binding each one', async () => {
+    const page = stubSession();
+    await runSteps(page, answerSteps, {
+      params: {
+        answers: [
+          { fieldName: 'urls[LinkedIn]', value: 'https://x.test' },
+          { fieldName: 'why_us', value: 'because' },
+        ],
+      },
+    });
+    expect(page.fill).toHaveBeenNthCalledWith(1, '[name="urls[LinkedIn]"]', 'https://x.test', {
+      submit: undefined,
+      typed: undefined,
+    });
+    expect(page.fill).toHaveBeenNthCalledWith(2, '[name="why_us"]', 'because', {
+      submit: undefined,
+      typed: undefined,
+    });
+  });
+
+  it('treats an absent array as nothing to do', async () => {
+    const page = stubSession();
+    await runSteps(page, answerSteps, { params: {} });
+    expect(page.fill).not.toHaveBeenCalled();
+  });
+
+  it('refuses a value that would break out of the selector', async () => {
+    const page = stubSession();
+    const result = await runSteps(page, answerSteps, {
+      params: { answers: [{ fieldName: 'x"], [name="password', value: 'stolen' }] },
+    });
+    expect(result.ok).toBe(false);
+    expect(page.fill).not.toHaveBeenCalled();
+  });
+
+  it('refuses more entries than the cap, rather than trimming quietly', async () => {
+    const page = stubSession();
+    const answers = Array.from({ length: 101 }, (_, i) => ({ fieldName: `f${i}`, value: 'v' }));
+    const result = await runSteps(page, answerSteps, { params: { answers } });
+    expect(result.ok).toBe(false);
+    expect(page.fill).not.toHaveBeenCalled();
+  });
+
+  it('refuses a non-array', async () => {
+    const page = stubSession();
+    const result = await runSteps(page, answerSteps, { params: { answers: 'nope' } });
+    expect(result.ok).toBe(false);
+  });
+
+  it('cannot reach the prototype chain through a dotted reference', async () => {
+    const page = stubSession();
+    // Treated as an unknown reference, which is the same refusal an undeclared
+    // parameter gets: it throws rather than substituting something.
+    await expect(
+      runSteps(
+        page,
+        [
+          {
+            forEach: '{{answers}}',
+            as: 'answer',
+            steps: [{ fill: '#x', value: '{{answer.constructor}}' }],
+          },
+        ],
+        { params: { answers: [{ fieldName: 'a', value: 'b' }] } },
+      ),
+    ).rejects.toThrow(/not a parameter/);
+    expect(page.fill).not.toHaveBeenCalled();
+  });
+
+  it('does not count the loop variable as a parameter the tool must declare', () => {
+    expect([...templateRefs(answerSteps)].sort()).toEqual(['answers']);
+  });
+
+  it('rejects a forEach that does not name a parameter', () => {
+    expect(() =>
+      validateSteps([{ forEach: 'literal', as: 'x', steps: [{ press: 'Enter' }] }]),
+    ).toThrow(/must name one parameter/);
+  });
+
+  it('rejects a nested loop that reuses a name', () => {
+    expect(() =>
+      validateSteps([
+        {
+          forEach: '{{a}}',
+          as: 'row',
+          steps: [{ forEach: '{{b}}', as: 'row', steps: [{ press: 'Enter' }] }],
+        },
+      ]),
+    ).toThrow(/already binds/);
+  });
+});

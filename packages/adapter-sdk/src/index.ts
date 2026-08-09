@@ -149,13 +149,17 @@ export {
 
 export {
   renderTemplate,
+  renderOptional,
   templateRefs,
   validateSteps,
   StepError,
   MAX_REPEAT,
+  MAX_FOREACH,
   MAX_STEPS,
   type Step,
   type Template,
+  type Optional,
+  type RenderOptions,
 } from './steps.js';
 
 export { runSteps, type RunStepsOptions } from './interpreter.js';

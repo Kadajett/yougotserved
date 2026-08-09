@@ -159,9 +159,17 @@ export function validatePack(value: unknown): Pack {
 
     validateSteps(tool.steps, `${where}.steps`);
 
-    for (const [index, step] of tool.steps.entries()) {
-      if ('extract' in step) validateExtractSpec(step.extract, `${where}.steps[${index}].extract`);
-    }
+    // Walks into repeat and forEach. A nested extract used to go unchecked,
+    // which meant a pack could hide a bad spec one level down.
+    const checkExtracts = (list: readonly Step[], at: string): void => {
+      for (const [index, step] of list.entries()) {
+        const here = `${at}[${index}]`;
+        if ('extract' in step) validateExtractSpec(step.extract, `${here}.extract`);
+        else if ('repeat' in step) checkExtracts(step.repeat.steps, `${here}.repeat.steps`);
+        else if ('forEach' in step) checkExtracts(step.steps, `${here}.forEach.steps`);
+      }
+    };
+    checkExtracts(tool.steps, `${where}.steps`);
 
     const declared = new Set(Object.keys(tool.inputSchema?.properties ?? {}));
     for (const reference of templateRefs(tool.steps)) {
