@@ -445,7 +445,8 @@ async function listAdapters(url: URL, env: Env): Promise<Response> {
             v.version, v.digest, v.capabilities, v.tool_count,
             COALESCE(d.total, 0)   AS downloads,
             COALESCE(r.average, 0) AS rating,
-            COALESCE(r.votes, 0)   AS votes
+            COALESCE(r.votes, 0)   AS votes,
+            own.login              AS owner
        FROM adapters a
        JOIN versions v ON v.adapter_id = a.id
         AND v.published_at = (SELECT MAX(published_at) FROM versions WHERE adapter_id = a.id)
@@ -454,6 +455,9 @@ async function listAdapters(url: URL, env: Env): Promise<Response> {
        LEFT JOIN (SELECT adapter_id, AVG(score) average, COUNT(*) votes
                     FROM ratings GROUP BY adapter_id) r
               ON r.adapter_id = a.id
+       LEFT JOIN (SELECT o.adapter_id, acc.login FROM adapter_owners o
+                    JOIN accounts acc ON acc.id = o.account_id) own
+              ON own.adapter_id = a.id
        ${where}
        ORDER BY downloads DESC, a.updated_at DESC
        LIMIT ?${query ? 2 : 1}`,
@@ -508,6 +512,7 @@ async function getAdapter(id: string, env: Env): Promise<Response> {
   const row = await env.DB.prepare(
     `SELECT a.id, a.name, a.description, a.homepage, a.author, a.origins,
             v.version, v.digest, v.capabilities, v.tool_count, v.pack,
+            own.login              AS owner,
             COALESCE(d.total, 0)   AS downloads,
             COALESCE(r.average, 0) AS rating,
             COALESCE(r.votes, 0)   AS votes
@@ -519,6 +524,9 @@ async function getAdapter(id: string, env: Env): Promise<Response> {
        LEFT JOIN (SELECT adapter_id, AVG(score) average, COUNT(*) votes
                     FROM ratings GROUP BY adapter_id) r
               ON r.adapter_id = a.id
+       LEFT JOIN (SELECT o.adapter_id, acc.login FROM adapter_owners o
+                    JOIN accounts acc ON acc.id = o.account_id) own
+              ON own.adapter_id = a.id
       WHERE a.id = ?1`,
   )
     .bind(id)
@@ -635,6 +643,32 @@ async function publish(request: Request, env: Env): Promise<Response> {
     return fail(400, `Digest mismatch. Body says ${body.digest}, the pack hashes to ${digest}.`);
   }
 
+  // An adapter id is a namespace, because a tool is named `<pack id>_<tool>`.
+  // Two authors covering one site is the ordinary case and costs nothing: they
+  // take different ids and their tools never collide. What does cost something
+  // is a second author taking the first one's id, because a new version under
+  // it reaches every machine that already installed it.
+  //
+  // So the first account to publish an id keeps it. Publishes carrying only a
+  // maintainer token and no account claim nothing and are refused nothing,
+  // which is what keeps the adapters already here working.
+  const publisher = await currentAccount(request, env);
+  const owner = await env.DB.prepare(
+    `SELECT o.account_id, a.login FROM adapter_owners o
+       JOIN accounts a ON a.id = o.account_id
+      WHERE o.adapter_id = ?1`,
+  )
+    .bind(pack.id)
+    .first<{ account_id: number; login: string }>();
+
+  if (owner && owner.account_id !== publisher?.id) {
+    return fail(
+      403,
+      `"${pack.id}" belongs to ${owner.login}.`,
+      'Pick another id. Two adapters for one site is normal, and their tools will not collide.',
+    );
+  }
+
   // Everything a pack shows a person is prose the author wrote: its name, its
   // description, and the description and returns line of every tool. The steps
   // are checked by the interpreter and cannot say anything; these can say
@@ -649,7 +683,8 @@ async function publish(request: Request, env: Env): Promise<Response> {
     prose[`tools.${toolId}.returns`] = tool.returns;
   }
 
-  const { reviewFields, fingerprint, reviewUrls } = await import('@yougotserved/moderation');
+  const { reviewFields, fingerprint, reviewUrls, reviewImpersonation } =
+    await import('@yougotserved/moderation');
   const verdict = reviewFields(prose);
 
   // Origins are not prose, and they matter more than prose. The host lets a
@@ -660,9 +695,45 @@ async function publish(request: Request, env: Env): Promise<Response> {
   // install. A redirector scores high enough to refuse on its own, because an
   // origin fence around one fences nothing.
   const origins = reviewUrls(pack.origins);
-  if (origins.findings.length > 0) {
-    verdict.findings.push(...origins.findings);
-    verdict.score += origins.findings.reduce((total, finding) => total + finding.weight, 0);
+
+  // And the scam that actually works on a person. Not a link in a description,
+  // but a pack called "LinkedIn people search" fenced to linkedln.com, which
+  // then gets a browser holding their real LinkedIn session. Every character in
+  // that hostname is ordinary ASCII, so the confusable check cannot see it.
+  //
+  // The best list to compare against is the one this registry already holds:
+  // every origin it serves is a name somebody might imitate, and it maintains
+  // itself as adapters are published.
+  const { results: served } = await env.DB.prepare(
+    'SELECT DISTINCT origins FROM adapters WHERE id != ?1',
+  )
+    .bind(pack.id)
+    .all<{ origins: string }>();
+
+  const known = [
+    ...new Set(
+      (served ?? []).flatMap((row) => {
+        try {
+          return (JSON.parse(row.origins) as string[]).map((origin) =>
+            origin.replace(/^https?:\/\//, '').replace(/^\*\./, ''),
+          );
+        } catch {
+          return [];
+        }
+      }),
+    ),
+  ];
+
+  const impersonation = reviewImpersonation({
+    origins: pack.origins,
+    prose: Object.values(prose).filter(Boolean).join(' '),
+    known,
+  });
+
+  const extra = [...origins.findings, ...impersonation];
+  if (extra.length > 0) {
+    verdict.findings.push(...extra);
+    verdict.score += extra.reduce((total, finding) => total + finding.weight, 0);
     if (verdict.score >= 7) verdict.severity = 'block';
     else if (verdict.score >= 3 && verdict.severity === 'allow') verdict.severity = 'review';
     verdict.field ??= 'origins';
@@ -767,6 +838,16 @@ async function publish(request: Request, env: Env): Promise<Response> {
     // is lost if the checks were wrong. A clean republish clears the hold,
     // which is the fix path for a false positive that needs no moderator.
     record,
+    // First publisher keeps the id. `DO NOTHING` rather than an update, so a
+    // later publish can never move ownership sideways.
+    ...(publisher
+      ? [
+          env.DB.prepare(
+            `INSERT INTO adapter_owners (adapter_id, account_id, claimed_at) VALUES (?1, ?2, ?3)
+               ON CONFLICT(adapter_id) DO NOTHING`,
+          ).bind(pack.id, publisher.id, now),
+        ]
+      : []),
   ]);
 
   // Read back rather than assume. A hold a moderator already cleared survives
@@ -1302,6 +1383,9 @@ function shape(row: Record<string, unknown>): Record<string, unknown> {
     id: row.id,
     name: row.name,
     description: row.description,
+    // The GitHub login that owns the id, when there is one. Two adapters for
+    // one site is normal, and who wrote each is what tells them apart.
+    owner: row.owner ?? undefined,
     homepage: row.homepage ?? undefined,
     author: row.author,
     origins: JSON.parse(String(row.origins ?? '[]')),

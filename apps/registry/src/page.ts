@@ -77,6 +77,21 @@ export const PAGE = `<!doctype html>
   .name { font-weight: 600; }
   .ver { color: var(--muted); font-size: 0.82rem; font-weight: 400; }
   .desc { color: var(--muted); margin: 4px 0 10px; font-size: 0.92rem; }
+  /* The id is what gets typed, so it reads as something to be typed. */
+  .pkg {
+    font: 0.8rem/1.4 ui-monospace, SFMono-Regular, monospace;
+    background: var(--sunk); border: 1px solid var(--line); border-radius: 5px;
+    padding: 1px 6px; color: var(--ink);
+  }
+  .by { color: var(--muted); font-size: 0.8rem; }
+  .unclaimed { font-style: italic; opacity: 0.75; }
+  /* Only appears when a site holds more than one, which is the whole point. */
+  .count {
+    margin-left: 8px; font-size: 0.72rem; font-weight: 500; letter-spacing: 0.02em;
+    color: var(--muted); background: var(--sunk);
+    border: 1px solid var(--line); border-radius: 999px; padding: 2px 8px;
+    vertical-align: middle;
+  }
   .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 0.75rem; }
   .tag {
     border: 1px solid var(--line); background: var(--sunk);
@@ -212,10 +227,19 @@ function card(a) {
   const stars = a.votes ? a.rating + '/5 (' + a.votes + ')' : 'unrated';
   // A brand new adapter reads "1 pulls · 1 tools" without this.
   const plural = (n, one) => n + ' ' + one + (n === 1 ? '' : 's');
+  // The id is what you install; the name is what tells two adapters for one
+  // site apart. A person scanning "linkedin_apply" and "linkedin_people" reads
+  // the names, then the authors, and only then types an id.
+  const who = a.owner || a.author;
+  const byline = who
+    ? '<span class="by">by ' + esc(who) + '</span>'
+    : '<span class="by unclaimed">unclaimed</span>';
+
   return '<li>'
-    + '<div class="row"><span class="name">' + esc(a.id)
+    + '<div class="row"><span class="name">' + esc(a.name || a.id)
     + ' <span class="ver">' + esc(a.version) + '</span></span>'
     + '<span class="ver">' + plural(a.downloads, 'pull') + ' &middot; ' + esc(stars) + '</span></div>'
+    + '<div class="row"><code class="pkg">' + esc(a.id) + '</code>' + byline + '</div>'
     + '<p class="desc">' + esc(a.description || a.name) + '</p>'
     + '<div class="meta">' + origins + caps
     + '<button class="tag" type="button" aria-expanded="false" data-id="' + esc(a.id) + '">'
@@ -334,25 +358,35 @@ function group(adapters) {
   const sorted = (map) => [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
 
   return sorted(domains).map(([domain, byHost]) => {
-    const ids = new Set([...byHost.values()].flat().map((a) => a.id));
+    const all = [...new Map([...byHost.values()].flat().map((a) => [a.id, a])).values()];
 
-    // One adapter covering several hosts of a domain is still one adapter. It
-    // gets one card, because two identical cards with the same install command
-    // is repetition, not information. Its origin tags already list the hosts.
-    if (ids.size < 2) {
-      const only = [...byHost.values()].flat()[0];
-      return '<section class="domain"><h2>' + esc(domain) + '</h2>'
-        + '<div class="host"><ul>' + card(only) + '</ul></div></section>';
+    // Several adapters for one site is the ordinary case, not the edge one:
+    // LinkedIn can hold a people search by one author and a job applier by
+    // another. The heading says how many so nobody assumes the first is the
+    // only one.
+    const heading = '<h2>' + esc(domain)
+      + (all.length > 1 ? '<span class="count">' + all.length + ' adapters</span>' : '')
+      + '</h2>';
+
+    // Nest by host only when the adapters actually sit on different hosts.
+    // Two adapters both on www.linkedin.com under a www.linkedin.com heading
+    // is a level of nesting that carries no information.
+    const hostsWithAdapters = [...byHost.entries()].filter(([, list]) => list.length > 0);
+    const spansHosts = hostsWithAdapters.length > 1
+      && hostsWithAdapters.some(([, list]) =>
+        list.some((a) => !hostsWithAdapters.every(([, other]) => other.some((b) => b.id === a.id))));
+
+    if (!spansHosts) {
+      return '<section class="domain">' + heading
+        + '<div class="host"><ul>' + all.map(card).join('') + '</ul></div></section>';
     }
 
-    // Several adapters on one domain is the case worth nesting: the host tells
-    // you which one you want.
     const body = sorted(byHost).map(([host, list]) => {
       const unique = [...new Map(list.map((a) => [a.id, a])).values()];
       return '<div class="host nested"><h3>' + esc(host) + '</h3>'
         + '<ul>' + unique.map(card).join('') + '</ul></div>';
     }).join('');
-    return '<section class="domain"><h2>' + esc(domain) + '</h2>' + body + '</section>';
+    return '<section class="domain">' + heading + body + '</section>';
   }).join('');
 }
 

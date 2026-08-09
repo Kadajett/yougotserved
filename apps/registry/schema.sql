@@ -193,3 +193,22 @@ CREATE TABLE IF NOT EXISTS tips (
 );
 
 CREATE INDEX IF NOT EXISTS idx_tips_verified ON tips(verified_at DESC);
+
+-- Who owns an adapter id.
+--
+-- Two people writing adapters for one site is the normal case, not the edge
+-- one: LinkedIn could hold a people search by one author and a job applier by
+-- another. They take different ids and never collide, because a tool is named
+-- `<pack id>_<tool>` and the pack id is unique.
+--
+-- Which makes the id a namespace, and a namespace needs an owner. Without this,
+-- once publishing opens beyond a maintainer token, anyone could push a new
+-- version of somebody else's adapter and it would reach every machine that
+-- installed it. First publisher keeps the id.
+CREATE TABLE IF NOT EXISTS adapter_owners (
+  adapter_id TEXT PRIMARY KEY REFERENCES adapters(id) ON DELETE CASCADE,
+  account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  claimed_at INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_owners_account ON adapter_owners(account_id);

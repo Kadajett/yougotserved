@@ -22,6 +22,8 @@ export { normalise, collapseRuns } from './normalize.js';
 export { fingerprint, MIN_WORDS } from './fingerprint.js';
 export { scoreSpam } from './spam.js';
 export { reviewUrls, hostOf } from './urls.js';
+export { reviewImpersonation, skeleton, HIGH_VALUE } from './impersonation.js';
+export type { ImpersonationInput } from './impersonation.js';
 export type { Finding } from './spam.js';
 export type { Normalised } from './normalize.js';
 export type { UrlVerdict } from './urls.js';
