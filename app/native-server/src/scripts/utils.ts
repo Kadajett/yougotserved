@@ -298,7 +298,7 @@ export async function registerUserLevelHostWithNodePath(
 }
 
 /**
- * 尝试注册用户级别的Native Messaging主机
+ * Registers the native messaging host for this user.
  */
 export async function tryRegisterUserLevelHost(
   targetBrowsers?: BrowserType[],
@@ -341,10 +341,10 @@ export async function tryRegisterUserLevelHost(
         await writeFile(config.userManifestPath, JSON.stringify(manifest, null, 2));
         console.log(colorText(`✓ Manifest written to ${config.userManifestPath}`, 'green'));
 
-        // Windows需要额外注册表项
+        // Windows also needs a registry entry.
         if (os.platform() === 'win32' && config.registryKey) {
           try {
-            // 注意：不需要手动双写反斜杠，reg 命令会正确处理 Windows 路径
+            // Do not double the backslashes. reg handles the path itself.
             const regCommand = `reg add "${config.registryKey}" /ve /t REG_SZ /d "${config.userManifestPath}" /f`;
             execSync(regCommand, { stdio: 'pipe' });
 
@@ -369,7 +369,7 @@ export async function tryRegisterUserLevelHost(
       }
     }
 
-    // 5. 报告结果
+    // 5. Report the result.
     console.log(colorText('\n===== Registration Summary =====', 'blue'));
     for (const result of results) {
       if (result.success) {
@@ -391,19 +391,19 @@ export async function tryRegisterUserLevelHost(
   }
 }
 
-// 导入is-admin包（仅在Windows平台使用）
+// Only used on Windows.
 let isAdmin: () => boolean = () => false;
 if (process.platform === 'win32') {
   try {
     isAdmin = require('is-admin');
   } catch (error) {
-    console.warn('缺少is-admin依赖，Windows平台下可能无法正确检测管理员权限');
+    console.warn('The is-admin package is missing, so administrator rights cannot be checked on Windows.');
     console.warn(error);
   }
 }
 
 /**
- * 使用提升权限注册系统级清单
+ * Registers the manifest for every user, which needs elevation.
  */
 export async function registerWithElevatedPermissions(extensionId?: string): Promise<void> {
   try {
@@ -424,27 +424,27 @@ export async function registerWithElevatedPermissions(extensionId?: string): Pro
 
     // 5. Check for elevated privileges
     const isRoot = process.getuid && process.getuid() === 0; // Unix/Linux/Mac
-    const hasAdminRights = process.platform === 'win32' ? isAdmin() : false; // Windows平台检测管理员权限
+    const hasAdminRights = process.platform === 'win32' ? isAdmin() : false; // Only Windows reports this.
     const hasElevatedPermissions = isRoot || hasAdminRights;
 
-    // 准备命令
+    // Build the commands.
     const command =
       os.platform() === 'win32'
         ? `if not exist "${path.dirname(manifestPath)}" mkdir "${path.dirname(manifestPath)}" && copy "${tempManifestPath}" "${manifestPath}"`
         : `mkdir -p "${path.dirname(manifestPath)}" && cp "${tempManifestPath}" "${manifestPath}" && chmod 644 "${manifestPath}"`;
 
     if (hasElevatedPermissions) {
-      // 已经有管理员权限，直接执行命令
+      // Already elevated, so run it.
       try {
-        // 创建目录
+        // Create the directory.
         if (!fs.existsSync(path.dirname(manifestPath))) {
           fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
         }
 
-        // 复制文件
+        // Copy the file.
         fs.copyFileSync(tempManifestPath, manifestPath);
 
-        // 设置权限（非Windows平台）
+        // Set permissions. Not needed on Windows.
         if (os.platform() !== 'win32') {
           fs.chmodSync(manifestPath, '644');
         }
@@ -457,7 +457,7 @@ export async function registerWithElevatedPermissions(extensionId?: string): Pro
         throw error;
       }
     } else {
-      // 没有管理员权限，打印手动操作提示
+      // Not elevated, so print what to run by hand.
       console.log(
         colorText('⚠️ Administrator privileges required for system-level installation', 'yellow'),
       );
@@ -484,21 +484,21 @@ export async function registerWithElevatedPermissions(extensionId?: string): Pro
       throw new Error('Administrator privileges required for system-level installation');
     }
 
-    // 6. Windows特殊处理 - 设置系统级注册表
+    // 6. Windows needs a machine-wide registry entry.
     if (os.platform() === 'win32') {
       const registryKey = `HKLM\\Software\\Google\\Chrome\\NativeMessagingHosts\\${HOST_NAME}`;
-      // 注意：不需要手动双写反斜杠，reg 命令会正确处理 Windows 路径
+      // Do not double the backslashes. reg handles the path itself.
       const regCommand = `reg add "${registryKey}" /ve /t REG_SZ /d "${manifestPath}" /f`;
 
       console.log(colorText(`Creating system registry entry: ${registryKey}`, 'blue'));
       console.log(colorText(`Manifest path: ${manifestPath}`, 'blue'));
 
       if (hasElevatedPermissions) {
-        // 已经有管理员权限，直接执行注册表命令
+        // Already elevated, so write the registry entry.
         try {
           execSync(regCommand, { stdio: 'pipe' });
 
-          // 验证注册表项是否创建成功
+          // Check that the entry was written.
           if (verifyWindowsRegistryEntry(registryKey, manifestPath)) {
             console.log(colorText('Windows registry entry created successfully!', 'green'));
           } else {
@@ -512,7 +512,7 @@ export async function registerWithElevatedPermissions(extensionId?: string): Pro
           throw error;
         }
       } else {
-        // 没有管理员权限，打印手动操作提示
+        // Not elevated, so print what to run by hand.
         console.log(
           colorText(
             '⚠️ Administrator privileges required for Windows registry modification',

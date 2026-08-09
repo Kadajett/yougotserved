@@ -26,5 +26,5 @@ async function main(): Promise<void> {
   }
 }
 
-// 执行Main
+// Run it.
 main();

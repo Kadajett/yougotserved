@@ -74,7 +74,7 @@ function isRunningElevated(): boolean {
 }
 
 /**
- * Ensure executable permissions（无论是否为全局安装）
+ * Ensure executable permissions, global install or not.
  */
 async function ensureExecutionPermissions(): Promise<void> {
   if (process.platform === 'win32') {
@@ -213,7 +213,7 @@ async function tryRegisterNativeHost(): Promise<void> {
   } catch (error) {
     console.log(
       colorText(
-        `注册过程中出现错误: ${error instanceof Error ? error.message : String(error)}`,
+        `Registration failed: ${error instanceof Error ? error.message : String(error)}`,
         'red',
       ),
     );
@@ -222,7 +222,7 @@ async function tryRegisterNativeHost(): Promise<void> {
 }
 
 /**
- * 打印手动安装指南
+ * Prints the steps to register by hand.
  */
 function printManualInstructions(): void {
   console.log('\n' + colorText('===== Manual Registration Guide =====', 'blue'));

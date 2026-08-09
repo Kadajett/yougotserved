@@ -17,10 +17,7 @@ would not exist without that base.
 - Native messaging framing, request correlation and timeouts
 - Cross-platform native host registration
 - MCP transports: stdio, SSE, and streamable HTTP
-- Selector engine: strategies, stability scoring, fingerprints, shadow DOM
-- Interaction recorder and the record and replay action handlers
-- Element picker and element marker
-- Vitest suites for record and replay
+- Element picker
 
 ## What we changed
 
@@ -28,9 +25,13 @@ We narrowed the product to a local browser bridge plus typed per-site adapter
 tools. Read [AUDIT.md](./AUDIT.md) for the component comparison and
 [DECISIONS.md](./DECISIONS.md) for the reasoning.
 
-We removed the ONNX runtime, the vector database, the semantic similarity
-engine, the WASM SIMD package, the agent chat service, and the web editor. Their
-licences no longer apply to this distribution.
+We removed every part we could not read and vouch for. Their licences no longer
+apply here, and the cut dropped three Chrome permissions: sidePanel,
+contextMenus and alarms.
+
+- ONNX runtime, vector database, semantic similarity engine, WASM SIMD package
+- Agent chat service and the web editor
+- Record and replay engine, selector engine, element markers
 
 ## Removed release bundle
 

@@ -514,7 +514,7 @@ export const TOOL_SCHEMAS: Tool[] = [
         savePng: {
           type: 'boolean',
           description:
-            'Save screenshot as PNG file (default: true)，if you want to see the page, recommend set this to be false, and set storeBase64 to be true',
+            'Save the screenshot as a PNG file. Default true. To look at the page instead, set this false and storeBase64 true',
         },
       },
       required: [],

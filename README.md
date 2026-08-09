@@ -82,12 +82,13 @@ adapter cannot widen its own reach at run time.
 ## Credit
 
 This project started as a fork of [hangwin/mcp-chrome](https://github.com/hangwin/mcp-chrome),
-MIT licensed. The git history holds their 191 commits. The native messaging
-host, the selector engine, and the record and replay engine come from that work.
+MIT licensed. The git history holds their 191 commits. The native messaging host
+and the extension architecture come from that work.
 
-We removed the vector database, the agent chat service, and the web editor. We
-added the adapter SDK, the pack format, and the origin and capability limits.
-Read [NOTICE.md](./NOTICE.md) for the full list.
+We then removed every part we could not read and vouch for, and rewrote what we
+kept. That took out the record and replay engine, the agent chat service, the
+vector database, and the selector engine. We added the adapter SDK, the pack
+format, and the origin and capability limits.
 
 ## Layout
 

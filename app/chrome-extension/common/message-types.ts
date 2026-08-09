@@ -145,7 +145,6 @@ export const TOOL_MESSAGE_TYPES = {
   SET_DOM_TRIGGERS: 'set_dom_triggers',
   DOM_TRIGGER_FIRED: 'dom_trigger_fired',
   // Record & Replay overlay: variable collection
-  COLLECT_VARIABLES: 'collectVariables',
   // Element marker overlay control (content-side)
   ELEMENT_MARKER_START: 'element_marker_start',
   // Element picker (tool-driven, background <-> content scripts)
