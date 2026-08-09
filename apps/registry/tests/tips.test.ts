@@ -74,6 +74,14 @@ describe('x402 v2 payment requirements', () => {
     ]);
   });
 
+  // A client that does not choose takes accepts[0], server-ordered. So the first
+  // entry is what an agent on autopilot pays, and putting a larger one there
+  // would charge people who were not paying attention.
+  it('offers the smallest amount first, because that is the default selection', () => {
+    const amounts = body.accepts.map((entry: any) => BigInt(entry.amount));
+    expect(amounts[0]).toBe(amounts.reduce((a: bigint, b: bigint) => (a < b ? a : b)));
+  });
+
   it('signs against the token domain version the contract actually reports', () => {
     expect(body.accepts[0].extra).toMatchObject({ name: 'USDC', version: '2', decimals: 6 });
   });
@@ -83,6 +91,28 @@ describe('x402 v2 payment requirements', () => {
     expect(Object.keys(body)).not.toContain('optional');
     expect(body.extensions['dev.yougotserved.tip'].optional).toBe(true);
     expect(body.extensions['dev.yougotserved.tip'].gates).toEqual([]);
+  });
+});
+
+// The spec has no notion of an optional payment, so `optional: true` under
+// extensions is ours and a standard client will not read it. It reads the 402 as
+// a paywall and comes back with a signature. The `error` field is where the spec
+// puts "here is why that did not work".
+describe('the reply to a client that tried to pay', () => {
+  const refused = requirements(
+    config,
+    'https://registry.yougotserved.dev',
+    'no facilitator',
+  ) as any;
+
+  it('keeps the body valid rather than inventing a failure shape', () => {
+    expect(refused.x402Version).toBe(2);
+    expect(refused.accepts.length).toBe(body.accepts.length);
+    expect(refused.error).toBe('no facilitator');
+  });
+
+  it('leaves error out entirely when there is nothing wrong', () => {
+    expect('error' in body).toBe(false);
   });
 });
 

@@ -968,6 +968,27 @@ async function tip(path: string, request: Request, url: URL, env: Env): Promise<
   const origin = local ? url.origin : `https://${url.host}`;
 
   if (path === '/api/tip' && request.method === 'GET') {
+    // A client that read the 402, signed an authorisation and came back is
+    // trying to complete a handshake this endpoint cannot finish. Settlement
+    // needs a facilitator to broadcast the signed transfer, and none is wired
+    // up, so the honest answer is to say so rather than serve the same 402
+    // again and let it retry into a wall.
+    //
+    // The protocol has a field for exactly this, and the tip never arrives
+    // otherwise: the signature is an authorisation, not a transfer, so nothing
+    // moves until somebody settles it. Saying nothing would lose the tip and
+    // look like a bug at the other end.
+    if (request.headers.get('payment-signature')) {
+      const payload = requirements(
+        config,
+        origin,
+        'This endpoint advertises a tip jar and cannot settle a payment inline: no facilitator ' +
+          'is configured, so a signed authorisation cannot be broadcast and nothing would ' +
+          'arrive. Send the transfer directly to payTo, then POST the hash to /api/tip/claim.',
+      );
+      return json(payload, 402, { 'payment-required': requirementsHeader(payload) });
+    }
+
     const payload = requirements(config, origin);
     // v2 carries the protocol in the header and treats the body as the server's
     // own business. Both are sent: the header for anything that speaks x402,

@@ -84,12 +84,17 @@ export function formatAmount(raw: string, decimals = DECIMALS): string {
 }
 
 /**
- * Suggested tip sizes, in whole USDC.
+ * Suggested tip sizes, in whole USDC, smallest first.
  *
  * Each becomes its own entry in `accepts`. That is not padding: the `exact`
  * scheme requires a fixed `amount`, so a variable tip has no representation in
  * the protocol at all. Three fixed options is the honest translation, and it is
  * the one an agent can act on without inventing a number.
+ *
+ * The order is load-bearing. A client that does not choose takes `accepts[0]`,
+ * server-ordered, so the first entry is what an agent on autopilot pays. It is
+ * the smallest for that reason, and adding a larger one at the front would be a
+ * way of charging people who were not paying attention.
  */
 const SUGGESTED = [1, 5, 25];
 
@@ -121,9 +126,14 @@ function units(whole: number, decimals = DECIMALS): string {
  * `extensions`, which is where v2 puts anything it did not define, under a
  * reverse-DNS key so it cannot collide with somebody else's extension.
  */
-export function requirements(config: TipConfig, origin: string): Record<string, unknown> {
+export function requirements(
+  config: TipConfig,
+  origin: string,
+  error?: string,
+): Record<string, unknown> {
   return {
     x402Version: 2,
+    ...(error ? { error } : {}),
     resource: {
       url: `${origin}/api/tip`,
       description: 'A tip jar. Nothing on this registry is behind it.',
