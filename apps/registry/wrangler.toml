@@ -23,6 +23,21 @@ database_id = "112c16d2-8ee4-4e09-baf8-9616d1e2ef82"
 pattern = "registry.yougotserved.dev"
 custom_domain = true
 
+# Half a million domains that somebody else keeps current: gambling, phishing,
+# scam, and the redirectors an origin fence cannot see through. One value, about
+# 2.3 MB gzipped, read once per isolate and held in memory.
+#
+# Porn and malware are not in here. Cloudflare's filtering resolver answers
+# those live, so there is nothing to store and nothing to go stale.
+[[kv_namespaces]]
+binding = "BLOCKLIST"
+id = "d8127b6f637641c69382646cb2b7a69e"
+
+# Rebuilds the blocklist from source. Weekly is often enough for a corpus this
+# size, and the previous value keeps answering while a refresh runs.
+[triggers]
+crons = ["17 4 * * 1"]
+
 [observability]
 enabled = true
 

@@ -28,16 +28,13 @@ describe('reviewUrls', () => {
     ).toEqual([]);
   });
 
-  it('flags a redirector hard enough to refuse on its own', () => {
-    // An origin fence around a shortener fences nothing: the check passes and
-    // then the browser lands somewhere nobody declared.
-    const verdict = reviewUrls(['bit.ly']);
-    expect(verdict.findings.map((f) => f.rule)).toContain('redirector');
-    expect(verdict.findings[0]?.weight).toBeGreaterThanOrEqual(7);
-  });
-
-  it('catches a redirector written as a full URL', () => {
+  it('refuses a public URL shortener, which is a constant and not a corpus', () => {
+    // The blocklist's `redirect` category is malicious redirect domains, a
+    // different and much larger problem that does not contain bit.ly. Both
+    // checks are needed; neither replaces the other.
+    expect(rules(['bit.ly'])).toContain('redirector');
     expect(rules(['https://tinyurl.com/abcdef'])).toContain('redirector');
+    expect(reviewUrls(['bit.ly']).findings[0]?.weight).toBeGreaterThanOrEqual(7);
   });
 
   it('holds a host with non-Latin lookalikes', () => {
@@ -51,18 +48,19 @@ describe('reviewUrls', () => {
     expect(found.findings[0]?.weight).toBeLessThan(7);
   });
 
-  it('notes a throwaway-friendly domain without refusing it', () => {
-    const found = reviewUrls(['https://deals.xyz']);
-    expect(found.findings.map((f) => f.rule)).toContain('cheap-tld');
-    expect(found.findings.reduce((t, f) => t + f.weight, 0)).toBeLessThan(7);
+  it('no longer guesses from the suffix', () => {
+    // A .xyz domain is not evidence of anything. That rule was a guess standing
+    // in for a corpus, and the corpus exists now.
+    expect(rules(['https://deals.xyz'])).toEqual([]);
   });
 });
 
 describe('review, with links judged as well as counted', () => {
-  it('refuses one link to a redirector, which counting never would', () => {
-    const verdict = review('Handy tool, docs at https://bit.ly/abc for the field names.');
-    expect(verdict.severity).toBe('block');
-    expect(verdict.findings.map((f) => f.rule)).toContain('redirector');
+  it('still counts a wall of links', () => {
+    const verdict = review(
+      'deals https://a.example https://b.example https://c.example https://d.example',
+    );
+    expect(verdict.findings.map((f) => f.rule)).toContain('links');
   });
 
   it('still allows one ordinary link', () => {

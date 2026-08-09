@@ -19,15 +19,20 @@ import type { Finding } from './spam.js';
 /**
  * Hosts whose entire purpose is to forward somewhere else.
  *
- * An origin fence works by checking a URL before navigation. Point it at a
- * redirector and the check passes, then the browser lands somewhere nobody
- * declared. That makes a shortener origin not a smell but a bypass, which is
- * why these score high enough to refuse on their own.
+ * This one stays a constant, and the distinction is worth stating because I got
+ * it wrong once. Gambling is a corpus: hundreds of thousands of domains, new
+ * ones daily, impossible to enumerate here and pointless to try. Public URL
+ * shorteners are not. There are a couple of dozen anyone actually uses, the set
+ * has barely moved in a decade, and a new one appearing is a news event rather
+ * than a Tuesday.
  *
- * This cannot be complete. Any site with an open redirect does the same thing,
- * and there is no list of those. It covers the ones whose only function is
- * this, which is the difference between closing a door and pretending there is
- * only one.
+ * The Blocklist Project's `redirect` list is not this list. It carries malicious
+ * redirect domains, which is a different and much larger problem, and it does
+ * not contain bit.ly for the good reason that bit.ly is not malware. Both
+ * checks are needed and neither replaces the other.
+ *
+ * An origin fence around any of these fences nothing: the check passes and the
+ * browser lands somewhere nobody declared. So it refuses on its own.
  */
 const REDIRECTORS = new Set([
   'bit.ly',
@@ -49,30 +54,21 @@ const REDIRECTORS = new Set([
   'adf.ly',
   'bc.vc',
   'linktr.ee',
+  'trib.al',
+  'dlvr.it',
+  'ift.tt',
+  'shrtco.de',
+  'short.io',
+  'snip.ly',
 ]);
 
-/**
- * Where throwaway domains are cheapest.
- *
- * Real sites live on these too, so this is worth a look rather than a refusal.
+/*
+ * The cheap-TLD list that used to sit here is gone with nothing replacing it.
+ * It was a guess standing in for a corpus we did not have, and it flagged
+ * honest adapters on .xyz for no better reason than the suffix. Now that the
+ * actual bad domains are known by name, guessing at them by suffix is worse
+ * than not guessing.
  */
-const CHEAP_TLDS = new Set([
-  'xyz',
-  'top',
-  'click',
-  'link',
-  'shop',
-  'live',
-  'icu',
-  'cyou',
-  'sbs',
-  'rest',
-  'quest',
-  'monster',
-  'buzz',
-  'work',
-  'fit',
-]);
 
 /** Pulls the host out of a URL or a bare hostname pattern. */
 export function hostOf(value: string): string | null {
@@ -105,7 +101,6 @@ export function reviewUrls(values: readonly string[]): UrlVerdict {
   const hosts: string[] = [];
 
   const redirectors = new Set<string>();
-  const cheap = new Set<string>();
   const punycode = new Set<string>();
   const lookalike = new Set<string>();
 
@@ -115,11 +110,9 @@ export function reviewUrls(values: readonly string[]): UrlVerdict {
     hosts.push(host);
 
     const labels = host.split('.');
-    const tld = labels[labels.length - 1] ?? '';
-    const registrable = labels.slice(-2).join('.');
-
-    if (REDIRECTORS.has(host) || REDIRECTORS.has(registrable)) redirectors.add(host);
-    if (CHEAP_TLDS.has(tld)) cheap.add(host);
+    if (REDIRECTORS.has(host) || REDIRECTORS.has(labels.slice(-2).join('.'))) {
+      redirectors.add(host);
+    }
 
     // `xn--` is a real internationalised name much of the time. It is also the
     // shape of a homograph attack, and the two are indistinguishable from the
@@ -137,8 +130,6 @@ export function reviewUrls(values: readonly string[]): UrlVerdict {
     findings.push({
       rule: 'redirector',
       detail: `forwards elsewhere: ${[...redirectors].join(', ')}`,
-      // On its own, enough to refuse. An origin fence around a redirector
-      // fences nothing.
       weight: 7,
     });
   }
@@ -156,13 +147,5 @@ export function reviewUrls(values: readonly string[]): UrlVerdict {
       weight: 3,
     });
   }
-  if (cheap.size > 0) {
-    findings.push({
-      rule: 'cheap-tld',
-      detail: `throwaway-friendly domain: ${[...cheap].join(', ')}`,
-      weight: 2,
-    });
-  }
-
   return { findings, hosts };
 }

@@ -27,10 +27,18 @@ import {
   type Account,
 } from './auth.js';
 import { DEVICE_PAGE, PAGE } from './page.js';
+import { categoriseOrigins, refreshBlocklist } from './blocked.js';
 import { confirmTip, formatAmount, isTxHash, requirements, tipConfig } from './tips.js';
 
 export interface Env {
   DB: D1Database;
+  /**
+   * Half a million categorised domains, from lists other people maintain.
+   *
+   * Optional. Without it the categorised checks are skipped and everything else
+   * behaves normally, which keeps a fork working without a KV namespace.
+   */
+  BLOCKLIST?: KVNamespace;
   /**
    * Publishing tokens, comma separated, one for each maintainer. Separate
    * tokens mean one can be revoked without locking the others out.
@@ -358,6 +366,16 @@ async function banned(env: Env, list: string[]): Promise<string | null> {
 }
 
 export default {
+  /**
+   * Rebuilds the domain corpus weekly.
+   *
+   * Out of band on purpose: fetching and parsing half a million domains has no
+   * business happening inside somebody's publish.
+   */
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    await refreshBlocklist(env);
+  },
+
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, '') || '/';
@@ -724,13 +742,36 @@ async function publish(request: Request, env: Env): Promise<Response> {
     ),
   ];
 
+  // What the origin actually is, according to people who maintain that answer
+  // for a living. A casino or a phishing page has no honest reason to be an
+  // adapter's declared origin, and enumerating either here would produce a list
+  // that was wrong the week it shipped.
+  //
+  // Links in the prose go through the same check. A phishing link in a
+  // description reaches a reader just as well as one in an origin, and the
+  // corpus does not care which field it came from.
+  const proseLinks =
+    Object.values(prose)
+      .filter(Boolean)
+      .join(' ')
+      .match(/\b(?:https?:\/\/|www\.)[^\s<>"']+/gi) ?? [];
+
+  const categorised = await categoriseOrigins(env, [...pack.origins, ...proseLinks]);
+  const categoryFindings = categorised.map(({ host, category }) => ({
+    rule: `category-${category}`,
+    detail: `"${host}" is listed as ${category}`,
+    // Refused outright. These are not judgement calls about a borderline
+    // domain, they are a domain somebody else already categorised.
+    weight: 8,
+  }));
+
   const impersonation = reviewImpersonation({
     origins: pack.origins,
     prose: Object.values(prose).filter(Boolean).join(' '),
     known,
   });
 
-  const extra = [...origins.findings, ...impersonation];
+  const extra = [...origins.findings, ...impersonation, ...categoryFindings];
   if (extra.length > 0) {
     verdict.findings.push(...extra);
     verdict.score += extra.reduce((total, finding) => total + finding.weight, 0);

@@ -238,6 +238,9 @@ importers:
       '@yougotserved/adapter-sdk':
         specifier: workspace:*
         version: link:../../packages/adapter-sdk
+      '@yougotserved/blocklist':
+        specifier: workspace:*
+        version: link:../../packages/blocklist
       '@yougotserved/moderation':
         specifier: workspace:*
         version: link:../../packages/moderation
@@ -260,6 +263,18 @@ importers:
       jsdom:
         specifier: ^26.0.0
         version: 26.1.0
+      tsup:
+        specifier: ^8.4.0
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)
+      vitest:
+        specifier: ^3.0.0
+        version: 3.2.7(@types/node@22.20.1)(jsdom@26.1.0)(lightningcss@1.33.0)
+
+  packages/blocklist:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.15.3
+        version: 22.20.1
       tsup:
         specifier: ^8.4.0
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.26)(typescript@5.9.3)(yaml@2.9.0)

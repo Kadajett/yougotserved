@@ -1,0 +1,27 @@
+{
+  "name": "@yougotserved/blocklist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Domain categories, from lists other people maintain.",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": { "types": "./dist/index.d.ts", "default": "./dist/index.mjs" },
+      "require": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "test": "vitest run",
+    "format": "prettier --write 'src/**/*.{ts,json}'"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsup": "^8.4.0",
+    "vitest": "^3.0.0"
+  }
+}
