@@ -132,6 +132,23 @@ const JSON_HEADERS = {
   'access-control-allow-origin': '*',
 };
 
+/**
+ * Headers for a page a browser will look at.
+ *
+ * The explicit no-store matters more than it looks. These responses carried no
+ * cache directive at all, and a response with no directive is one a browser
+ * caches heuristically, guessing a lifetime from its own rules. That is fine
+ * until the page is briefly wrong, at which point the reader keeps their copy
+ * of the wrong page and no amount of fixing the server reaches them. It cost a
+ * real 403 that outlived its cause.
+ */
+function htmlHeaders(): Record<string, string> {
+  return {
+    'content-type': 'text/html; charset=utf-8',
+    'cache-control': 'no-store, must-revalidate',
+  };
+}
+
 function json(body: unknown, status = 200, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { ...JSON_HEADERS, ...extra } });
 }
@@ -443,7 +460,7 @@ export default {
 };
 
 async function route(path: string, request: Request, url: URL, env: Env): Promise<Response> {
-  if (path === '/') return new Response(PAGE, { headers: { 'content-type': 'text/html' } });
+  if (path === '/') return new Response(PAGE, { headers: htmlHeaders() });
   if (path === '/api/health') return json({ ok: true });
   if (path === '/api/adapters' && request.method === 'GET') return listAdapters(url, env);
   if (path === '/api/adapters' && request.method === 'POST') return publish(request, env);
@@ -1090,7 +1107,7 @@ async function tip(path: string, request: Request, url: URL, env: Env): Promise<
       const chain = config.chainId === 8453 ? 'Base' : `chain ${config.chainId}`;
       return new Response(tipPage(config.payTo, chain, config.token), {
         status: 402,
-        headers: { 'content-type': 'text/html; charset=utf-8', 'payment-required': header },
+        headers: { ...htmlHeaders(), 'payment-required': header },
       });
     }
 
@@ -1304,7 +1321,7 @@ async function auth(path: string, request: Request, url: URL, env: Env): Promise
         headers: { location: `/api/auth/login?device=${encodeURIComponent(code)}` },
       });
     }
-    return new Response(DEVICE_PAGE, { headers: { 'content-type': 'text/html; charset=utf-8' } });
+    return new Response(DEVICE_PAGE, { headers: htmlHeaders() });
   }
 
   if (path === '/api/auth/device/approve' && request.method === 'POST') {

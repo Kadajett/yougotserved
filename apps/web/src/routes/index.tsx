@@ -34,7 +34,13 @@ export const Route = createFileRoute('/')({
         }
 
         return new Response(siteHtml, {
-          headers: { 'content-type': 'text/html; charset=utf-8' },
+          headers: {
+            'content-type': 'text/html; charset=utf-8',
+            // Same reason as the registry page: a response with no directive is
+            // one the browser caches on a guess, and a briefly wrong page then
+            // outlives the fix.
+            'cache-control': 'no-store, must-revalidate',
+          },
         });
       },
     },
