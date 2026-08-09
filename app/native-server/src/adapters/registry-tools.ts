@@ -25,6 +25,15 @@ import * as path from 'path';
  */
 const DEFAULT_REGISTRY = 'https://registry.yougotserved.dev';
 
+/**
+ * The shape of an adapter id, copied from the SDK rather than imported.
+ *
+ * This package ships to npm on its own, and `check-publishable.mjs` fails the
+ * build if it depends on a workspace package. An id reaches a file path below,
+ * so a loose check here would be a traversal.
+ */
+const ADAPTER_ID = /^[a-z][a-z0-9_]*$/;
+
 export const REGISTRY_TOOL_NAMES = {
   SEARCH: 'ygs_search_adapters',
   INSTALL: 'ygs_install_adapter',
@@ -225,9 +234,16 @@ async function install(
  * without learning which machine sent either one.
  */
 async function rate(id: string, score: number): Promise<CallToolResult> {
-  if (!id) return text('An adapter id is required.', true);
+  if (!ADAPTER_ID.test(id ?? '')) return text('An adapter id is required.', true);
   if (!Number.isInteger(score) || score < 1 || score > 5) {
     return text('Score must be a whole number from 1 to 5.', true);
+  }
+
+  // A rating is meant to say "this worked on my machine". Without this check
+  // anything could rate every adapter in the registry without ever running one,
+  // which is the difference between a signal and a number.
+  if (!fs.existsSync(path.join(adaptersDir(), `${id}.ygs.json`))) {
+    return text(`${id} is not installed here. Install and use it before rating it.`, true);
   }
 
   const response = await fetch(`${registryUrl()}/api/adapters/${encodeURIComponent(id)}/rate`, {

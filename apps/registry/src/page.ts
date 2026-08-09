@@ -99,13 +99,15 @@ function card(a) {
   const origins = (a.origins || [])
     .map((o) => '<span class="tag">' + esc(o) + '</span>').join('');
   const stars = a.votes ? a.rating + '/5 (' + a.votes + ')' : 'unrated';
+  // A brand new adapter reads "1 pulls · 1 tools" without this.
+  const plural = (n, one) => n + ' ' + one + (n === 1 ? '' : 's');
   return '<li>'
     + '<div class="row"><span class="name">' + esc(a.id)
     + ' <span class="ver">' + esc(a.version) + '</span></span>'
-    + '<span class="ver">' + a.downloads + ' pulls &middot; ' + esc(stars) + '</span></div>'
+    + '<span class="ver">' + plural(a.downloads, 'pull') + ' &middot; ' + esc(stars) + '</span></div>'
     + '<p class="desc">' + esc(a.description || a.name) + '</p>'
     + '<div class="meta">' + origins + caps
-    + '<span class="tag">' + a.tools + ' tools</span></div>'
+    + '<span class="tag">' + plural(a.tools, 'tool') + '</span></div>'
     + '<code>ygs adapter add ' + esc(a.id) + '</code></li>';
 }
 
