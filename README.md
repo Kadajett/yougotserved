@@ -20,6 +20,72 @@ npm install -g ygs-bridge
 ygs doctor
 ```
 
+Install the extension from the Chrome Web Store, or build it yourself below.
+
+## Run it from source
+
+Build everything first. The extension lands in `.output/chrome-mv3`.
+
+```bash
+pnpm install
+pnpm build
+```
+
+## Load the extension
+
+Open `chrome://extensions`, turn on Developer mode, and choose Load unpacked.
+Point it at `app/chrome-extension/.output/chrome-mv3`.
+
+Chrome derives the extension ID from the folder path. A local build gets a
+different ID from the published one, so register the host for that ID.
+
+```bash
+node app/native-server/dist/cli.js register --extension-id <id-from-chrome>
+node app/native-server/dist/cli.js doctor
+```
+
+## Point your client at it
+
+The bridge serves MCP over stdio. Add it to your client config, using the
+absolute path to your checkout.
+
+```json
+{
+  "mcpServers": {
+    "ygs": {
+      "command": "node",
+      "args": ["/abs/path/to/youGotServed/app/native-server/dist/mcp/mcp-server-stdio.js"]
+    }
+  }
+}
+```
+
+Claude Code takes the same thing in one line.
+
+```bash
+claude mcp add ygs -- node /abs/path/to/youGotServed/app/native-server/dist/mcp/mcp-server-stdio.js
+```
+
+## Manage adapters
+
+The bridge installs packs for you. `add` prints the origins and the abilities,
+then asks before it writes.
+
+```bash
+ygs adapter search hacker
+ygs adapter add hackernews
+ygs adapter list
+```
+
+## Change an adapter
+
+Edit the JSON in `adapters/`, then check it. The check prints the digest and
+what each tool is allowed to reach.
+
+```bash
+node scripts/adapters.mjs check
+```
+
 ## Use
 
 An adapter turns a site into a small set of typed tools. Your agent finds one
@@ -64,8 +130,13 @@ Three reasons force this design. No review process can audit a stranger's
 JavaScript that runs against a signed-in session. Chrome Web Store policy
 forbids remotely hosted code. `node:vm` is not a security boundary.
 
+## Publishing
+
+Publishing runs from the repository, not the CLI. CI does it on every push that
+touches `adapters/`. Set `YGS_PUBLISH_TOKEN` to run it yourself.
+
 ```bash
-ygs adapter publish linkedin
+node scripts/adapters.mjs publish
 ```
 
 ## Security
