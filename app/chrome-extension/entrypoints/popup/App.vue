@@ -258,7 +258,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { BACKGROUND_MESSAGE_TYPES } from '@/common/message-types';
 import { LINKS } from '@/common/constants';
 import { getMessage } from '@/utils/i18n';
-import { useAgentTheme, type AgentThemeId } from '../sidepanel/composables/useAgentTheme';
+import { useAgentTheme, type AgentThemeId } from '../shared/composables/useAgentTheme';
 
 import ProgressIndicator from './components/ProgressIndicator.vue';
 import {

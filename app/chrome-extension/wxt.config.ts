@@ -42,16 +42,12 @@ export default defineConfig({
       'tabs',
       'activeTab',
       'scripting',
-      'contextMenus',
       'downloads',
       'webRequest',
       'webNavigation',
       'debugger',
       'offscreen',
       'storage',
-      'alarms',
-      // Allow programmatic control of Chrome Side Panel
-      'sidePanel',
     ],
     host_permissions: ['<all_urls>'],
     options_ui: {
@@ -61,11 +57,6 @@ export default defineConfig({
     action: {
       default_popup: 'popup.html',
       default_title: 'youGotServed',
-    },
-    // Chrome Side Panel entry for workflow management
-    // Ref: https://developer.chrome.com/docs/extensions/reference/api/sidePanel
-    side_panel: {
-      default_path: 'sidepanel.html',
     },
     // Keyboard shortcuts for quick triggers
     commands: {

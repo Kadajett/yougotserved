@@ -13,7 +13,7 @@ import {
   mountQuickPanelShadowHost,
   type QuickPanelShadowHostElements,
   type QuickPanelShadowHostManager,
-} from '@/shared/quick-panel/ui';
+} from '@/shared/overlay-host/shadow-host';
 import type { PickedElement } from 'chrome-mcp-shared';
 
 // ============================================================

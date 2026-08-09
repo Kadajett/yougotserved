@@ -1,8 +1,4 @@
 import { initNativeHostListener } from './native-host';
-import { initElementMarkerListeners } from './element-marker';
-import { initQuickPanelAgentHandler } from './quick-panel/agent-handler';
-import { initQuickPanelCommands } from './quick-panel/commands';
-import { initQuickPanelTabsHandler } from './quick-panel/tabs-handler';
 
 // Record-Replay V3 (feature flag)
 
@@ -29,12 +25,4 @@ export default defineBackground(() => {
   // Initialize core services
   initNativeHostListener();
 
-  // Element marker: context menu + CRUD listeners
-  initElementMarkerListeners();
-  // Quick Panel: send messages to AgentChat via background-stream bridge
-  initQuickPanelAgentHandler();
-  // Quick Panel: tabs search bridge for content script UI
-  initQuickPanelTabsHandler();
-  // Quick Panel: keyboard shortcut handler
-  initQuickPanelCommands();
 });
