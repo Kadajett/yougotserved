@@ -1,0 +1,245 @@
+{
+  "format": 1,
+  "id": "docs_rs",
+  "name": "docs.rs",
+  "description": "Find a Rust crate's documentation, read a module's item list, and read one item's signature and method table, without loading rustdoc pages into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://docs.rs"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search_crates": {
+      "description": "Search docs.rs for crates by name and description. Use this first to get a crate's exact documentation url.",
+      "returns": "One record per crate: the name with its version, the docs url, the description and the release date.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "What to search for, e.g. \"async runtime\""
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many crates to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 30
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://docs.rs/releases/search?query={{query|url}}",
+          "until": { "selector": "a.release, .recent-releases-container" }
+        },
+        {
+          "assert": {
+            "selector": "a.release",
+            "code": "not_found",
+            "message": "docs.rs returned no crates for that query.",
+            "hint": "Try fewer or broader words."
+          }
+        },
+        {
+          "extract": {
+            "each": "a.release",
+            "limit": "{{limit}}",
+            "fields": {
+              "name": { "selector": ".name", "fallback": null },
+              "url": { "prop": "href", "fallback": null },
+              "description": { "selector": ".description", "fallback": null },
+              "released": { "selector": ".date", "fallback": null }
+            }
+          }
+        }
+      ]
+    },
+    "crate_docs": {
+      "description": "Read a crate's top-level documentation. Give it the crate name as published, hyphens and all; docs.rs redirects to the underscored module path itself.",
+      "returns": "A crate record with the rustdoc name, version and heading, then the crate-level doc paragraphs, then the item table: every re-export, module, struct, trait, enum, macro and function with its kind, url and one-line description.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "crate": {
+            "type": "string",
+            "description": "Crate name, e.g. \"tokio\" or \"pyo3-async-runtimes\"",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "version": {
+            "type": "string",
+            "description": "Version or \"latest\"",
+            "default": "latest",
+            "pattern": "^[A-Za-z0-9_.+-]{1,32}$"
+          },
+          "paragraphs": {
+            "type": "integer",
+            "description": "How many doc paragraphs to return",
+            "default": 6,
+            "minimum": 1,
+            "maximum": 60
+          },
+          "items": {
+            "type": "integer",
+            "description": "How many items from the item table to return",
+            "default": 60,
+            "minimum": 1,
+            "maximum": 400
+          }
+        },
+        "required": ["crate"]
+      },
+      "steps": [
+        {
+          "goto": "https://docs.rs/{{crate}}/{{version}}/",
+          "until": { "selector": "#main-content, .error-page" }
+        },
+        {
+          "assert": {
+            "selector": ".main-heading h1",
+            "code": "not_found",
+            "message": "docs.rs showed no rustdoc page for that crate and version.",
+            "hint": "Check the name with search_crates. A build failure also lands here, in which case only the crate page exists."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "name": { "selector": ".sidebar-crate h2 a", "fallback": null },
+              "version": { "selector": ".sidebar-crate .version", "fallback": null },
+              "heading": {
+                "selector": ".main-heading h1",
+                "regex": "^([\\s\\S]*?)(?:\\s*Copy item path)?$",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          },
+          "as": "crate"
+        },
+        {
+          "extract": {
+            "each": "#main-content > details.top-doc .docblock p, #main-content > .docblock p",
+            "limit": "{{paragraphs}}",
+            "fields": { "text": {} }
+          },
+          "as": "doc"
+        },
+        {
+          "extract": {
+            "each": ".item-table dt",
+            "limit": "{{items}}",
+            "fields": {
+              "name": { "selector": "a", "fallback": null },
+              "kind": { "selector": "a", "attr": "class", "fallback": null },
+              "url": { "selector": "a", "prop": "href", "fallback": null },
+              "description": { "from": "next", "fallback": null }
+            }
+          },
+          "as": "items"
+        }
+      ]
+    },
+    "read_page": {
+      "description": "Read one rustdoc page: a module, struct, trait, enum or function. Give it the docs.rs path, the part after the host, exactly as an item url from crate_docs or search_crates gives it.",
+      "returns": "A page record with the heading, the declaration for an item page, and the crate and version, then the doc paragraphs, then the item table for a module page, then the inherent and trait methods with their full signatures and one-line docs.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "Path after https://docs.rs/, e.g. \"tokio/latest/tokio/sync/struct.Mutex.html\" or \"tokio/latest/tokio/sync/index.html\""
+          },
+          "paragraphs": {
+            "type": "integer",
+            "description": "How many doc paragraphs to return",
+            "default": 6,
+            "minimum": 1,
+            "maximum": 60
+          },
+          "methods": {
+            "type": "integer",
+            "description": "How many methods to return",
+            "default": 40,
+            "minimum": 1,
+            "maximum": 200
+          }
+        },
+        "required": ["path"]
+      },
+      "steps": [
+        {
+          "goto": "https://docs.rs/{{path}}",
+          "until": { "selector": "#main-content, .error-page" }
+        },
+        {
+          "assert": {
+            "selector": ".main-heading h1",
+            "code": "not_found",
+            "message": "docs.rs showed no rustdoc page at that path.",
+            "hint": "Paths look like \"tokio/latest/tokio/sync/struct.Mutex.html\". Get one from crate_docs."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "heading": {
+                "selector": ".main-heading h1",
+                "regex": "^([\\s\\S]*?)(?:\\s*Copy item path)?$",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "declaration": { "selector": "pre.rust.item-decl", "fallback": null },
+              "crateName": { "selector": ".sidebar-crate h2 a", "fallback": null },
+              "version": { "selector": ".sidebar-crate .version", "fallback": null }
+            }
+          },
+          "as": "page"
+        },
+        {
+          "extract": {
+            "each": "#main-content > details.top-doc .docblock p, #main-content > .docblock p",
+            "limit": "{{paragraphs}}",
+            "fields": { "text": {} }
+          },
+          "as": "doc"
+        },
+        {
+          "extract": {
+            "each": ".item-table dt",
+            "limit": 200,
+            "fields": {
+              "name": { "selector": "a", "fallback": null },
+              "kind": { "selector": "a", "attr": "class", "fallback": null },
+              "url": { "selector": "a", "prop": "href", "fallback": null },
+              "description": { "from": "next", "fallback": null }
+            }
+          },
+          "as": "items"
+        },
+        {
+          "extract": {
+            "each": "details.method-toggle",
+            "limit": "{{methods}}",
+            "fields": {
+              "name": { "selector": "section h4 a.fn", "fallback": null },
+              "anchor": { "selector": "section", "attr": "id", "fallback": null },
+              "signature": { "selector": "section h4", "fallback": null },
+              "doc": { "selector": ".docblock p", "fallback": null }
+            }
+          },
+          "as": "methods"
+        }
+      ]
+    }
+  }
+}

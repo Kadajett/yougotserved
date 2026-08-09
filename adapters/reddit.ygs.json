@@ -417,6 +417,148 @@
           }
         }
       ]
+    },
+    "save_comment": {
+      "description": "Save one comment to your own Reddit saved list. Private to your account and reversible with unsave_comment.",
+      "returns": "The comment id, author, body and its saved state after the click.",
+      "risk": "write",
+      "capabilities": ["navigate", "read", "interact"],
+      "requiresConfirm": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "description": "Post id the comment sits under, e.g. \"1ve5j4h\"",
+            "pattern": "^[a-z0-9]{4,12}$"
+          },
+          "commentId": {
+            "type": "string",
+            "description": "Comment id without the t1_ prefix, e.g. \"p1eg0f8\"",
+            "pattern": "^[a-z0-9]{4,12}$"
+          }
+        },
+        "required": ["postId", "commentId"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/comments/{{postId}}/_/{{commentId}}",
+          "until": { "selector": ".commentarea .thing.comment, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#thing_t1_{{commentId}} li.save-button a",
+            "code": "not_authenticated",
+            "message": "Reddit showed no save control on that comment.",
+            "hint": "Sign in to old.reddit.com in this browser, or check the post and comment ids."
+          }
+        },
+        {
+          "click": "#thing_t1_{{commentId}}:not(.saved) li.save-button a",
+          "optional": true,
+          "until": { "selector": "#thing_t1_{{commentId}}.saved" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "id": {
+                "selector": ".commentarea .thing.comment",
+                "attr": "data-fullname",
+                "fallback": null
+              },
+              "author": {
+                "selector": ".commentarea .thing.comment",
+                "attr": "data-author",
+                "fallback": null
+              },
+              "permalink": {
+                "selector": ".commentarea .thing.comment",
+                "attr": "data-permalink",
+                "fallback": null
+              },
+              "body": {
+                "selector": ".commentarea .thing.comment .usertext-body .md",
+                "fallback": null
+              },
+              "saved": {
+                "selector": ".commentarea .thing.comment.saved",
+                "exists": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unsave_comment": {
+      "description": "Remove one comment from your own Reddit saved list.",
+      "returns": "The comment id, author, body and its saved state after the click.",
+      "risk": "write",
+      "capabilities": ["navigate", "read", "interact"],
+      "requiresConfirm": true,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "description": "Post id the comment sits under, e.g. \"1ve5j4h\"",
+            "pattern": "^[a-z0-9]{4,12}$"
+          },
+          "commentId": {
+            "type": "string",
+            "description": "Comment id without the t1_ prefix, e.g. \"p1eg0f8\"",
+            "pattern": "^[a-z0-9]{4,12}$"
+          }
+        },
+        "required": ["postId", "commentId"]
+      },
+      "steps": [
+        {
+          "goto": "https://old.reddit.com/comments/{{postId}}/_/{{commentId}}",
+          "until": { "selector": ".commentarea .thing.comment, .content" }
+        },
+        {
+          "assert": {
+            "selector": "#thing_t1_{{commentId}} li.save-button a",
+            "code": "not_authenticated",
+            "message": "Reddit showed no save control on that comment.",
+            "hint": "Sign in to old.reddit.com in this browser, or check the post and comment ids."
+          }
+        },
+        {
+          "click": "#thing_t1_{{commentId}}.saved li.save-button a",
+          "optional": true,
+          "until": { "selectorGone": "#thing_t1_{{commentId}}.saved" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "id": {
+                "selector": ".commentarea .thing.comment",
+                "attr": "data-fullname",
+                "fallback": null
+              },
+              "author": {
+                "selector": ".commentarea .thing.comment",
+                "attr": "data-author",
+                "fallback": null
+              },
+              "permalink": {
+                "selector": ".commentarea .thing.comment",
+                "attr": "data-permalink",
+                "fallback": null
+              },
+              "body": {
+                "selector": ".commentarea .thing.comment .usertext-body .md",
+                "fallback": null
+              },
+              "saved": {
+                "selector": ".commentarea .thing.comment.saved",
+                "exists": true
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }
