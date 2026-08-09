@@ -28,6 +28,7 @@ import {
 } from './auth.js';
 import { DEVICE_PAGE, PAGE, tipPage } from './page.js';
 import { categoriseOrigins, refreshBlocklist } from './blocked.js';
+import { chosen, facilitatorConfig, readPayment, settle, settlementHeader } from './facilitator.js';
 import {
   confirmTip,
   formatAmount,
@@ -88,6 +89,22 @@ export interface Env {
   TIP_TOKEN?: string;
   TIP_CHAIN_ID?: string;
   TIP_RPC?: string;
+  /**
+   * CDP credentials, which is what lets a client pay inline instead of
+   * transferring separately and reporting the hash.
+   *
+   * Unset, the tip jar behaves exactly as it did: a client that signs gets an
+   * `error` saying so and the direct route still works. Set with
+   *   wrangler secret put CDP_API_KEY_ID
+   *   wrangler secret put CDP_API_KEY_SECRET
+   *
+   * These are secrets and the tip address is not, which looks inconsistent and
+   * is not. An address is public by nature and wants the visibility of version
+   * control; a signing key is neither.
+   */
+  CDP_API_KEY_ID?: string;
+  CDP_API_KEY_SECRET?: string;
+  X402_FACILITATOR?: string;
 }
 
 /**
@@ -968,25 +985,86 @@ async function tip(path: string, request: Request, url: URL, env: Env): Promise<
   const origin = local ? url.origin : `https://${url.host}`;
 
   if (path === '/api/tip' && request.method === 'GET') {
-    // A client that read the 402, signed an authorisation and came back is
-    // trying to complete a handshake this endpoint cannot finish. Settlement
-    // needs a facilitator to broadcast the signed transfer, and none is wired
-    // up, so the honest answer is to say so rather than serve the same 402
-    // again and let it retry into a wall.
-    //
-    // The protocol has a field for exactly this, and the tip never arrives
-    // otherwise: the signature is an authorisation, not a transfer, so nothing
-    // moves until somebody settles it. Saying nothing would lose the tip and
-    // look like a bug at the other end.
-    if (request.headers.get('payment-signature')) {
-      const payload = requirements(
-        config,
-        origin,
-        'This endpoint advertises a tip jar and cannot settle a payment inline: no facilitator ' +
-          'is configured, so a signed authorisation cannot be broadcast and nothing would ' +
-          'arrive. Send the transfer directly to payTo, then POST the hash to /api/tip/claim.',
+    // A client that read the 402, signed an authorisation and came back with it
+    // is completing the handshake. Everything below refuses in the same shape it
+    // was asked in: a valid PaymentRequired with the spec's `error` set, so the
+    // other end never has to special-case the reply, and never retries into a
+    // wall wondering why nothing arrived.
+    const presented = readPayment(request.headers.get('payment-signature'));
+    if (presented) {
+      const refuse = (reason: string) => {
+        const payload = requirements(config, origin, reason);
+        return json(payload, 402, { 'payment-required': requirementsHeader(payload) });
+      };
+
+      const facilitator = facilitatorConfig(env);
+      if (!facilitator) {
+        return refuse(
+          'Inline settlement is not configured on this deployment, so a signed authorisation ' +
+            'cannot be broadcast and nothing would arrive. Send the transfer to payTo directly, ' +
+            'then POST the hash to /api/tip/claim.',
+        );
+      }
+
+      // Settling makes two outbound calls on a stranger's say-so, so it is
+      // limited before any of that happens.
+      if (await throttled(request, env, 'settle', 30, 3600)) {
+        return fail(429, 'Too many settlement attempts from here in the last hour.');
+      }
+
+      const options = requirements(config, origin).accepts as Array<Record<string, unknown>>;
+      const wanted = chosen(options, presented, config.payTo);
+      if (!wanted) {
+        return refuse(
+          'That payload does not match any option this endpoint published, or is not addressed ' +
+            'to it. Pay one of the amounts in accepts, to the payTo it names.',
+        );
+      }
+
+      let result;
+      try {
+        result = await settle(facilitator, presented, wanted);
+      } catch (error) {
+        return refuse(error instanceof Error ? error.message : 'The facilitator was unreachable.');
+      }
+      if (!result.ok) return refuse(result.reason);
+
+      const account = await currentAccount(request, env);
+      const now = Date.now();
+
+      // Ignored on conflict rather than refused. The transaction is on-chain by
+      // this point, so a duplicate row is the only thing at stake and losing the
+      // race should not turn a settled payment into an error.
+      await env.DB.prepare(
+        `INSERT OR IGNORE INTO tips
+           (tx_hash, chain, token, amount, from_addr, account_id, display, note, claimed_at, verified_at)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, '', ?8, ?8)`,
+      )
+        .bind(
+          result.settled.transaction,
+          result.settled.network,
+          config.token,
+          result.settled.amount,
+          result.settled.payer,
+          account?.id ?? null,
+          account?.login ?? '',
+          now,
+        )
+        .run();
+
+      return json(
+        {
+          ok: true,
+          amount: formatAmount(result.settled.amount),
+          transaction: result.settled.transaction,
+          attributedTo: account?.login ?? null,
+          // Said out loud on the one response where it is least expected. A 200
+          // after a payment normally means something was bought.
+          unlocked: 'nothing, on purpose',
+        },
+        200,
+        { 'payment-response': settlementHeader(result.settled) },
       );
-      return json(payload, 402, { 'payment-required': requirementsHeader(payload) });
     }
 
     const payload = requirements(config, origin);

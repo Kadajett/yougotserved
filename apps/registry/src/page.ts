@@ -448,7 +448,7 @@ export const DEVICE_PAGE = `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Approve an agent — youGotServed</title>
+<title>Approve an agent · youGotServed</title>
 <link rel="icon" href="https://yougotserved.dev/icon.png">
 <style>
   :root {

@@ -67,3 +67,13 @@ TIP_RPC = "https://mainnet.base.org"
 #   wrangler secret put VOTER_SALT
 #   wrangler secret put GITHUB_CLIENT_ID
 #   wrangler secret put GITHUB_CLIENT_SECRET
+#
+# CDP credentials turn on inline settlement, which is what lets an agent pay
+# from the 402 itself instead of transferring separately and reporting the hash.
+# Unset, a client that signs is told so and the direct route still works.
+#   wrangler secret put CDP_API_KEY_ID       # organizations/<org>/apiKeys/<key>
+#   wrangler secret put CDP_API_KEY_SECRET   # base64, 64 bytes: seed + public key
+#
+# The facilitator broadcasts the signed transfer and pays the gas. Funds move
+# from payer to the address above without passing through it, so this adds a
+# dependency and not a custodian. Base mainnet needs CDP; x402.org is testnet.
