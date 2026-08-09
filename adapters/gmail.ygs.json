@@ -1,0 +1,127 @@
+{
+  "format": 1,
+  "id": "gmail",
+  "name": "Gmail",
+  "description": "Search your Gmail and read a thread, without loading whole pages into context.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://mail.google.com"],
+  "signInUrl": "https://mail.google.com/mail/u/0/",
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search_threads": {
+      "description": "Search your Gmail. Takes the same query syntax as the Gmail search box.",
+      "returns": "One record per thread: sender, subject, snippet, timestamp and thread id.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Gmail search query, e.g. \"from:stripe newer_than:7d\""
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many threads to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://mail.google.com/mail/u/0/#search/{{query|url}}",
+          "until": { "selector": "[role='main']" }
+        },
+        {
+          "assert": {
+            "selector": "[role='main']",
+            "code": "not_authenticated",
+            "message": "Gmail did not show a mailbox.",
+            "hint": "Sign in to Gmail in this browser, then try again."
+          }
+        },
+        {
+          "extract": {
+            "each": "[role='main'] [role='grid'] tr[role='row']",
+            "limit": "{{limit}}",
+            "fields": {
+              "sender": { "selector": "[email][name]", "attr": "name", "fallback": null },
+              "senderEmail": { "selector": "[email][name]", "attr": "email", "fallback": null },
+              "subject": {
+                "selector": "[role='gridcell'] [role='link'] [data-legacy-thread-id]",
+                "fallback": null
+              },
+              "threadId": {
+                "selector": "[role='gridcell'] [role='link'] [data-legacy-thread-id]",
+                "attr": "data-legacy-thread-id",
+                "fallback": null
+              },
+              "snippet": { "selector": "[role='gridcell'] [role='link']", "fallback": null },
+              "timestamp": {
+                "selector": "[role='gridcell'] [title][aria-label]",
+                "attr": "title",
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "get_thread": {
+      "description": "Read every message in one Gmail thread. Give it the thread id from search_threads.",
+      "returns": "One record per message: sender, timestamp and the full body text.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "threadId": {
+            "type": "string",
+            "description": "Thread id from search_threads"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "How many messages to return",
+            "default": 20,
+            "minimum": 1,
+            "maximum": 50
+          }
+        },
+        "required": ["threadId"]
+      },
+      "steps": [
+        {
+          "goto": "https://mail.google.com/mail/u/0/#all/{{threadId|url}}",
+          "until": { "selector": "[role='main'] [data-message-id]" }
+        },
+        {
+          "assert": {
+            "selector": "[role='main'] [data-message-id]",
+            "code": "not_found",
+            "message": "Gmail showed no messages for that thread id.",
+            "hint": "Run search_threads again for a current id."
+          }
+        },
+        {
+          "extract": {
+            "each": "[role='main'] [data-message-id]",
+            "limit": "{{limit}}",
+            "fields": {
+              "messageId": { "attr": "data-legacy-message-id", "fallback": null },
+              "sender": { "selector": "[email][name]", "attr": "name", "fallback": null },
+              "senderEmail": { "selector": "[email][name]", "attr": "email", "fallback": null },
+              "timestamp": { "selector": "span[title][alt]", "attr": "title", "fallback": null },
+              "body": {}
+            }
+          }
+        }
+      ]
+    }
+  }
+}

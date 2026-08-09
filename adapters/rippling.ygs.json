@@ -1,0 +1,76 @@
+{
+  "format": 1,
+  "id": "rippling",
+  "name": "Rippling ATS",
+  "description": "Read a Rippling job application form, including its custom fields and option lists.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://ats.rippling.com"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "inspect_application": {
+      "description": "Read a Rippling application form. Returns every field with its label, id and control type.",
+      "returns": "A list of fields. Submitting is not part of this adapter.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Public Rippling job URL" },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum fields to return",
+            "default": 50,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["url"]
+      },
+      "steps": [
+        { "goto": "{{url}}", "until": { "selector": "form" } },
+        {
+          "assert": {
+            "selector": "form",
+            "code": "not_found",
+            "message": "Rippling showed no application form.",
+            "hint": "The posting may be closed, or it may need the Apply button first."
+          }
+        },
+        {
+          "extract": {
+            "each": "form [id^='field-']",
+            "limit": "{{limit}}",
+            "fields": {
+              "label": { "selector": "[id^='field-'][id$='-label'], p", "fallback": null },
+              "fieldId": {
+                "selector": "input, textarea, select, [role='combobox'], [role='radiogroup']",
+                "attr": "id",
+                "fallback": null
+              },
+              "testId": {
+                "selector": "input, textarea, select",
+                "attr": "data-testid",
+                "fallback": null
+              },
+              "inputType": {
+                "selector": "input:not([type='hidden'])",
+                "attr": "type",
+                "fallback": null
+              },
+              "controlRole": {
+                "selector": "[role='combobox'], [role='radiogroup']",
+                "attr": "role",
+                "fallback": null
+              },
+              "isFile": { "selector": "input[type='file']", "exists": true },
+              "isTextarea": { "selector": "textarea", "exists": true },
+              "isSelect": { "selector": "select", "exists": true }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

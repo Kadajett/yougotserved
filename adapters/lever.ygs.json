@@ -1,0 +1,154 @@
+{
+  "format": 1,
+  "id": "lever",
+  "name": "Lever",
+  "description": "Inspect and submit public Lever job applications with your own browser session.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://jobs.lever.co", "https://jobs.eu.lever.co"],
+  "capabilities": ["navigate", "read", "interact", "upload"],
+  "uploads": { "allowedExtensions": ["pdf", "doc", "docx"], "maxBytes": 10485760 },
+  "tools": {
+    "inspect_application": {
+      "description": "Read a Lever application form. Returns every field with its name, label and control type.",
+      "returns": "The job title and a list of fields. Feed the field names back to apply.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Lever apply URL, ending in /apply"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum fields to return",
+            "default": 50,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["url"]
+      },
+      "steps": [
+        { "goto": "{{url}}", "until": { "selector": "#application-form" } },
+        {
+          "assert": {
+            "selector": "#application-form",
+            "code": "not_found",
+            "message": "Lever showed no application form.",
+            "hint": "The posting may be closed, or the URL may not end in /apply."
+          }
+        },
+        {
+          "extract": {
+            "each": "#application-form .application-question",
+            "limit": "{{limit}}",
+            "fields": {
+              "fieldName": {
+                "selector": "input:not([type='hidden']), textarea, select",
+                "attr": "name",
+                "fallback": null
+              },
+              "label": { "selector": "label", "fallback": null },
+              "inputType": { "selector": "input", "attr": "type", "fallback": null },
+              "isTextarea": { "selector": "textarea", "exists": true },
+              "isSelect": { "selector": "select", "exists": true },
+              "isFile": { "selector": "input[type='file']", "exists": true },
+              "required": {
+                "selector": "input[required], textarea[required], select[required]",
+                "exists": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "apply": {
+      "description": "Fill and submit a Lever application. This sends the application and cannot be undone.",
+      "returns": "The page Lever shows after submitting.",
+      "risk": "irreversible",
+      "capabilities": ["navigate", "read", "interact", "upload"],
+      "requiresConfirm": true,
+      "timeoutMs": 240000,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Lever apply URL, ending in /apply" },
+          "fullName": { "type": "string", "description": "Applicant full name" },
+          "email": { "type": "string", "description": "Applicant email" },
+          "phone": { "type": "string", "description": "Applicant phone" },
+          "location": { "type": "string", "description": "Applicant location" },
+          "currentCompany": { "type": "string", "description": "Current company" },
+          "linkedinUrl": { "type": "string", "description": "LinkedIn profile URL" },
+          "githubUrl": { "type": "string", "description": "GitHub profile URL" },
+          "portfolioUrl": { "type": "string", "description": "Portfolio URL" },
+          "resume": { "type": "object", "description": "Resume file to attach" },
+          "answers": {
+            "type": "array",
+            "description": "One entry per extra question, from inspect_application",
+            "items": {
+              "type": "object",
+              "properties": {
+                "fieldName": { "type": "string", "description": "Field name from inspect" },
+                "value": { "type": "string", "description": "The answer" }
+              },
+              "required": ["fieldName", "value"]
+            }
+          }
+        },
+        "required": ["url", "fullName", "email", "resume"]
+      },
+      "steps": [
+        { "goto": "{{url}}", "until": { "selector": "#application-form" } },
+        {
+          "assert": {
+            "selector": "[data-qa='btn-submit']",
+            "code": "not_found",
+            "message": "Lever showed no submit button, so this posting is not accepting applications.",
+            "hint": "Check the posting is still open."
+          }
+        },
+        { "upload": { "selector": "[data-qa='input-resume']", "file": "{{resume}}" } },
+        { "fill": "[data-qa='name-input']", "value": "{{fullName}}" },
+        { "fill": "[data-qa='email-input']", "value": "{{email}}" },
+        { "fill": "[data-qa='phone-input']", "value": "{{phone}}", "optional": true },
+        { "fill": "[data-qa='location-input']", "value": "{{location}}", "optional": true },
+        { "fill": "[data-qa='org-input']", "value": "{{currentCompany}}", "optional": true },
+        { "fill": "[name='urls[LinkedIn]']", "value": "{{linkedinUrl}}", "optional": true },
+        { "fill": "[name='urls[GitHub]']", "value": "{{githubUrl}}", "optional": true },
+        { "fill": "[name='urls[Portfolio]']", "value": "{{portfolioUrl}}", "optional": true },
+        {
+          "forEach": "{{answers}}",
+          "as": "answer",
+          "steps": [
+            {
+              "fill": "input[name='{{answer.fieldName}}'], textarea[name='{{answer.fieldName}}']",
+              "value": "{{answer.value}}",
+              "optional": true
+            },
+            {
+              "select": "select[name='{{answer.fieldName}}']",
+              "value": "{{answer.value}}",
+              "optional": true
+            }
+          ]
+        },
+        {
+          "click": "[data-qa='btn-submit']",
+          "until": { "selectorGone": "#application-form" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "confirmation": { "selector": "main, body" },
+              "formStillOpen": { "selector": "#application-form", "exists": true }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

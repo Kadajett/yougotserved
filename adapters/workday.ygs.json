@@ -1,0 +1,96 @@
+{
+  "format": 1,
+  "id": "workday",
+  "name": "Workday",
+  "description": "Read a Workday application, including its progress steps and whether it wants an account.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://*.myworkdayjobs.com"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "inspect_application": {
+      "description": "Read a Workday application. Reports the progress steps and whether it is asking for a tenant account.",
+      "returns": "The title, the step list, and whether an account gate is in the way.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Workday job URL" },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum fields to return",
+            "default": 50,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["url"]
+      },
+      "steps": [
+        { "goto": "{{url}}", "until": { "selector": "[data-automation-id]" } },
+        {
+          "assert": {
+            "selector": "[data-automation-id]",
+            "code": "not_found",
+            "message": "Workday did not render. It may still be loading, or the posting may be gone.",
+            "hint": "Open the URL yourself and check it resolves."
+          }
+        },
+        {
+          "extract": {
+            "fields": {
+              "title": { "selector": "h1, h2", "fallback": null },
+              "accountEmail": { "selector": "[data-automation-id='email']", "exists": true },
+              "accountPassword": { "selector": "[data-automation-id='password']", "exists": true },
+              "verifyPassword": {
+                "selector": "[data-automation-id='verifyPassword']",
+                "exists": true
+              },
+              "signInLink": { "selector": "[data-automation-id='signInLink']", "exists": true },
+              "autofillWithResume": {
+                "selector": "[data-automation-id='autofillWithResume']",
+                "exists": true
+              }
+            }
+          },
+          "as": "state"
+        },
+        {
+          "extract": {
+            "each": "[data-automation-id='progressBar'] li",
+            "limit": 20,
+            "fields": { "step": {} }
+          },
+          "as": "progress"
+        },
+        {
+          "extract": {
+            "each": "[data-automation-id='formField']",
+            "limit": "{{limit}}",
+            "fields": {
+              "label": { "selector": "label", "fallback": null },
+              "fieldId": {
+                "selector": "input, textarea, select, button",
+                "attr": "id",
+                "fallback": null
+              },
+              "automationId": { "attr": "data-automation-id", "fallback": null },
+              "inputType": {
+                "selector": "input:not([type='hidden'])",
+                "attr": "type",
+                "fallback": null
+              },
+              "required": {
+                "selector": "input[required], textarea[required], select[required]",
+                "exists": true
+              }
+            }
+          },
+          "as": "fields"
+        }
+      ]
+    }
+  }
+}

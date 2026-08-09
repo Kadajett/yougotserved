@@ -1,0 +1,141 @@
+{
+  "format": 1,
+  "id": "ashby",
+  "name": "Ashby",
+  "description": "Inspect and submit public Ashby job applications with your own browser session.",
+  "version": "0.1.0",
+  "homepage": "https://github.com/Kadajett/yougotserved",
+  "origins": ["https://jobs.ashbyhq.com"],
+  "capabilities": ["navigate", "read", "interact", "upload"],
+  "uploads": { "allowedExtensions": ["pdf", "doc", "docx"], "maxBytes": 10485760 },
+  "tools": {
+    "inspect_application": {
+      "description": "Read an Ashby application form. Returns every field with its path, label and control type.",
+      "returns": "The job title and a list of fields. Feed the input ids back to apply.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Public Ashby job URL" },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum fields to return",
+            "default": 50,
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["url"]
+      },
+      "steps": [
+        {
+          "goto": "{{url}}",
+          "until": { "selector": ".ashby-application-form-container" }
+        },
+        {
+          "assert": {
+            "selector": ".ashby-application-form-container",
+            "code": "not_found",
+            "message": "Ashby showed no application form.",
+            "hint": "The posting may be closed."
+          }
+        },
+        {
+          "extract": {
+            "each": "[data-field-path]",
+            "limit": "{{limit}}",
+            "fields": {
+              "fieldPath": { "attr": "data-field-path" },
+              "label": { "selector": ".ashby-application-form-question-title", "fallback": null },
+              "inputId": { "selector": "input, textarea, select", "attr": "id", "fallback": null },
+              "inputType": { "selector": "input", "attr": "type", "fallback": null },
+              "isTextarea": { "selector": "textarea", "exists": true },
+              "isSelect": { "selector": "select", "exists": true },
+              "hasRadios": { "selector": "input[type='radio']", "exists": true },
+              "required": {
+                "selector": "input[required], textarea[required], select[required]",
+                "exists": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "apply": {
+      "description": "Fill and submit an Ashby application. This sends the application and cannot be undone.",
+      "returns": "The status message Ashby shows after submitting.",
+      "risk": "irreversible",
+      "capabilities": ["navigate", "read", "interact", "upload"],
+      "requiresConfirm": true,
+      "timeoutMs": 240000,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string", "description": "Public Ashby job URL" },
+          "name": { "type": "string", "description": "Applicant full name" },
+          "email": { "type": "string", "description": "Applicant email" },
+          "phone": { "type": "string", "description": "Applicant phone" },
+          "resume": { "type": "object", "description": "Resume file to attach" },
+          "answers": {
+            "type": "array",
+            "description": "One entry per extra question, from inspect_application",
+            "items": {
+              "type": "object",
+              "properties": {
+                "inputId": { "type": "string", "description": "Input id from inspect" },
+                "value": { "type": "string", "description": "The answer" }
+              },
+              "required": ["inputId", "value"]
+            }
+          }
+        },
+        "required": ["url", "name", "email", "resume"]
+      },
+      "steps": [
+        { "goto": "{{url}}", "until": { "selector": "#_systemfield_name" } },
+        {
+          "assert": {
+            "selector": "#_systemfield_resume",
+            "code": "not_found",
+            "message": "Ashby showed no resume field, so this form is not the standard one.",
+            "hint": "Open the posting and check it is still accepting applications."
+          }
+        },
+        { "fill": "#_systemfield_name", "value": "{{name}}" },
+        { "fill": "#_systemfield_email", "value": "{{email}}" },
+        { "fill": "#_systemfield_phone", "value": "{{phone}}", "optional": true },
+        { "upload": { "selector": "#_systemfield_resume", "file": "{{resume}}" } },
+        {
+          "forEach": "{{answers}}",
+          "as": "answer",
+          "steps": [
+            {
+              "fill": "input#{{answer.inputId}}, textarea#{{answer.inputId}}",
+              "value": "{{answer.value}}",
+              "optional": true
+            },
+            {
+              "select": "select#{{answer.inputId}}",
+              "value": "{{answer.value}}",
+              "optional": true
+            }
+          ]
+        },
+        {
+          "click": ".ashby-application-form-submit-button",
+          "until": { "selector": "[role='status']" }
+        },
+        {
+          "extract": {
+            "fields": {
+              "status": { "selector": "[role='status']", "fallback": null },
+              "confirmation": { "selector": "main, body" }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
