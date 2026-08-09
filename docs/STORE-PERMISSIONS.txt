@@ -1,0 +1,78 @@
+Paste one block into each permission justification field in the dev console.
+These are separate fields from the testing instructions, which are capped at
+500 characters and live in STORE-TESTING.txt.
+
+
+nativeMessaging
+
+Carries every command from the companion program to the extension. The
+extension does nothing without it. The manifest permits one extension ID only,
+so no other extension can use the same channel.
+
+
+tabs
+
+Lists the open tabs and moves between them, so a tool can act on the tab the
+user names instead of guessing.
+
+
+activeTab
+
+Acts on the tab the user selected when a tool needs only that one.
+
+
+scripting
+
+Reads the text of a page and fills a form. This is how the agent answers a
+question about a page the user is looking at.
+
+
+downloads
+
+Saves a file when a tool is asked to save one. The user starts every download.
+
+
+webRequest
+
+Captures a network response for the network capture tool, so a developer can
+debug a request without leaving the browser.
+
+
+webNavigation
+
+Detects the moment a page finishes to load, so a tool reads a complete page
+instead of a partial one.
+
+
+debugger
+
+Records performance traces and reads console messages. Three tools use it: the
+performance trace, the console reader, and the network capture. Each attaches
+to one tab on a user command, and detaches at the end. Chrome shows its warning
+bar for the whole time. The extension never attaches on its own.
+
+
+offscreen
+
+Runs the text-similarity engine in a worker, off the visible page, so ranking
+page content does not block the page the user is reading.
+
+
+storage
+
+Keeps the port number and the user settings.
+
+
+host permission: <all_urls>
+
+This cannot be narrower. A user installs adapters, and an adapter can name any
+site, so the set of sites is not known when we ship.
+
+The real limit sits one level down. An adapter is a JSON file that declares the
+origins it may reach, and the host refuses every address outside that list. A
+reviewer can see this: run "ygs adapter install hackernews" and the command
+prints the origins before it writes anything. The file is readable at
+~/.yougotserved/adapters/hackernews.ygs.json
+
+An adapter holds data and never code. The extension cannot run code from our
+servers, because no such path exists.
