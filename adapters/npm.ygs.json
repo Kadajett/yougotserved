@@ -1,0 +1,98 @@
+{
+  "format": 1,
+  "id": "npm",
+  "name": "npm",
+  "description": "Search the npm registry and read a package page, without loading whole pages into context.",
+  "version": "0.1.0",
+  "homepage": "https://www.npmjs.com",
+  "origins": ["https://www.npmjs.com"],
+  "capabilities": ["navigate", "read"],
+  "tools": {
+    "search_packages": {
+      "description": "Search npm for packages. Returns name, description, version, last publish and licence for each hit.",
+      "returns": "A list of packages, best match first.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "What to search for, e.g. \"mcp browser\"" },
+          "limit": {
+            "type": "integer",
+            "description": "How many results to return",
+            "default": 10,
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": ["query"]
+      },
+      "steps": [
+        {
+          "goto": "https://www.npmjs.com/search?q={{query|url}}",
+          "until": { "selector": "a[href^='/package/']" }
+        },
+        {
+          "extract": {
+            "each": "section:has(a[href^='/package/'])",
+            "limit": "{{limit}}",
+            "fields": {
+              "name": "h3",
+              "url": { "selector": "a[href^='/package/']", "prop": "href" },
+              "description": { "selector": "p", "fallback": null },
+              "version": {
+                "selector": "span",
+                "regex": "•\\s*([^•]+?)\\s*•",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "updated": {
+                "selector": "span",
+                "regex": "•[^•]+•\\s*([^•]+?)\\s*•",
+                "regexGroup": 1,
+                "fallback": null
+              },
+              "license": {
+                "selector": "span",
+                "regex": "•\\s*([^•]+)$",
+                "regexGroup": 1,
+                "fallback": null
+              }
+            }
+          }
+        }
+      ]
+    },
+    "package_info": {
+      "description": "Read one npm package page. Give it the exact package name, including any scope.",
+      "returns": "The package name and description, plus the sidebar facts as label and value pairs.",
+      "risk": "read",
+      "capabilities": ["navigate", "read"],
+      "requiresConfirm": false,
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Package name, e.g. \"ygs-bridge\"" }
+        },
+        "required": ["name"]
+      },
+      "steps": [
+        {
+          "goto": "https://www.npmjs.com/package/{{name}}",
+          "until": { "selector": "aside h3" }
+        },
+        {
+          "extract": {
+            "each": "aside h3",
+            "limit": 12,
+            "fields": {
+              "label": {},
+              "value": { "from": "next", "fallback": null }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
