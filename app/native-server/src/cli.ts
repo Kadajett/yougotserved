@@ -238,6 +238,107 @@ program
     }
   });
 
+/*
+ * Adapter commands.
+ *
+ * The registry page prints `ygs adapter add <id>`, so it has to exist. These
+ * share their implementation with the MCP tools of the same name, which means
+ * a pack installed here is checked exactly the way an agent's install is.
+ */
+const adapter = program.command('adapter').description('Manage installed adapter packs');
+
+adapter
+  .command('search [query]')
+  .description('Search the registry, best match first')
+  .option('-n, --limit <n>', 'How many to show', '10')
+  .action(async (query: string | undefined, options) => {
+    try {
+      const { searchRegistry } = await import('./adapters/registry-tools.js');
+      const found = await searchRegistry(query ?? '', parseInt(options.limit, 10) || 10);
+      if (found.length === 0) {
+        console.log(colorText(`No adapter matches "${query ?? ''}".`, 'yellow'));
+        return;
+      }
+      for (const a of found) {
+        const score = a.votes ? `${a.rating}/5 (${a.votes})` : 'unrated';
+        console.log(`${colorText(a.id, 'green')} ${a.version}  ${score}  ${a.downloads} pulls`);
+        console.log(`  ${a.description ?? ''}`);
+        console.log(`  ${(a.origins ?? []).join(', ')}\n`);
+      }
+    } catch (error: any) {
+      console.error(colorText(error.message, 'red'));
+      process.exit(1);
+    }
+  });
+
+adapter
+  .command('list')
+  .description('List adapters installed on this machine')
+  .action(async () => {
+    const { installedPacks, adaptersDir } = await import('./adapters/registry-tools.js');
+    const packs = installedPacks();
+    if (packs.length === 0) {
+      console.log('No adapters installed. Try: ygs adapter search');
+      return;
+    }
+    for (const pack of packs) {
+      console.log(`${colorText(pack.id, 'green')} ${pack.version}  ${pack.tools.length} tools`);
+    }
+    console.log(colorText(`\n${adaptersDir()}`, 'blue'));
+  });
+
+adapter
+  .command('add <id>')
+  .description('Install an adapter from the registry')
+  .option('-v, --version <version>', 'Pin a version. Defaults to the newest')
+  .option('-y, --yes', 'Skip the confirmation prompt')
+  .action(async (id: string, options) => {
+    try {
+      const { fetchListing, downloadAndInstall } = await import('./adapters/registry-tools.js');
+      const listing = await fetchListing(id);
+      const target = options.version || listing.version;
+
+      // The reach is printed before anything is downloaded, the same order the
+      // MCP tool uses. Installing is the point where a stranger's pack gets
+      // your logged-in browser, so it is worth reading twice.
+      console.log(
+        `\n${colorText(`${listing.id}@${target}`, 'green')}  ${listing.description ?? ''}`,
+      );
+      console.log(`  Origins:      ${(listing.origins ?? []).join(', ')}`);
+      console.log(`  Capabilities: ${(listing.capabilities ?? []).join(', ')}`);
+      console.log(`  Tools:        ${Object.keys(listing.pack?.tools ?? {}).join(', ')}\n`);
+
+      if (!options.yes && !(await confirm('Install this adapter?'))) {
+        console.log('Nothing was written.');
+        return;
+      }
+
+      const receipt = await downloadAndInstall(id, target);
+      console.log(colorText(`\nInstalled ${receipt.id}@${receipt.version}`, 'green'));
+      console.log(`  ${receipt.digest}`);
+      console.log(`  ${receipt.file}`);
+      console.log('\nRestart your MCP client to pick up the new tools.');
+    } catch (error: any) {
+      console.error(colorText(error.message, 'red'));
+      process.exit(1);
+    }
+  });
+
+/** A yes/no on stdin. Returns false when there is no terminal to ask. */
+function confirm(question: string): Promise<boolean> {
+  if (!process.stdin.isTTY) return Promise.resolve(false);
+  const readline = require('readline').createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve) => {
+    readline.question(`${question} [y/N] `, (answer: string) => {
+      readline.close();
+      resolve(/^y(es)?$/i.test(answer.trim()));
+    });
+  });
+}
+
 program.parse(process.argv);
 
 // If no command provided, show help

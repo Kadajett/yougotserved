@@ -137,12 +137,24 @@ export async function handleRegistryTool(name: string, args: any): Promise<CallT
   }
 }
 
-async function search(query = '', limit = 10): Promise<CallToolResult> {
+/** Searches the registry. Shared by the MCP tool and `ygs adapter search`. */
+export async function searchRegistry(query = '', limit = 10): Promise<any[]> {
   const url = `${registryUrl()}/api/adapters?q=${encodeURIComponent(query)}&limit=${Number(limit) || 10}`;
   const response = await fetch(url);
-  if (!response.ok) return text(`Registry returned ${response.status}.`, true);
+  if (!response.ok) throw new Error(`Registry returned ${response.status}.`);
 
   const { adapters = [] } = (await response.json()) as { adapters: any[] };
+  return adapters;
+}
+
+async function search(query = '', limit = 10): Promise<CallToolResult> {
+  let adapters: any[];
+  try {
+    adapters = await searchRegistry(query, limit);
+  } catch (error) {
+    return text(error instanceof Error ? error.message : String(error), true);
+  }
+
   if (adapters.length === 0) {
     return text(`No adapter matches "${query}". You can write one: see AUTHORING.md.`);
   }
@@ -163,18 +175,76 @@ async function search(query = '', limit = 10): Promise<CallToolResult> {
   );
 }
 
+/**
+ * Reads one adapter's listing.
+ *
+ * Shared by the MCP tool and the `ygs adapter` commands, so both show the same
+ * reach before anything is downloaded.
+ */
+export async function fetchListing(id: string): Promise<any> {
+  if (!id) throw new Error('An adapter id is required.');
+  if (!ADAPTER_ID.test(id)) {
+    throw new Error(`"${id}" is not an adapter id. Lowercase letters, digits and _ only.`);
+  }
+
+  const detail = await fetch(`${registryUrl()}/api/adapters/${encodeURIComponent(id)}`);
+  if (detail.status === 404) throw new Error(`No adapter called "${id}".`);
+  if (!detail.ok) throw new Error(`Registry returned ${detail.status}.`);
+  return detail.json();
+}
+
+export interface InstallReceipt {
+  id: string;
+  version: string;
+  digest: string;
+  file: string;
+  audit: string;
+}
+
+/**
+ * Downloads a pack, checks it, and writes it next to the others.
+ *
+ * The pack is validated after it arrives rather than trusted from the listing,
+ * because the listing and the bytes are two different answers from a server.
+ */
+export async function downloadAndInstall(id: string, version: string): Promise<InstallReceipt> {
+  const packResponse = await fetch(
+    `${registryUrl()}/api/adapters/${encodeURIComponent(id)}/${encodeURIComponent(version)}/pack.json`,
+  );
+  if (!packResponse.ok) throw new Error(`No version ${version} of "${id}".`);
+  const body = await packResponse.text();
+
+  const { validatePack, packDigest, describePack } = await import('@yougotserved/adapter-sdk');
+  const pack = validatePack(JSON.parse(body));
+  const digest = await packDigest(pack);
+
+  const dir = adaptersDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${pack.id}.ygs.json`);
+  fs.writeFileSync(file, body);
+  fs.writeFileSync(
+    path.join(dir, `${pack.id}.lock.json`),
+    JSON.stringify(
+      { id: pack.id, version: pack.version, digest, installedAt: Date.now() },
+      null,
+      2,
+    ),
+  );
+
+  return { id: pack.id, version: pack.version, digest, file, audit: describePack(pack) };
+}
+
 async function install(
   id: string,
   version: string | undefined,
   confirmed: boolean,
 ): Promise<CallToolResult> {
-  if (!id) return text('An adapter id is required.', true);
-
-  const detail = await fetch(`${registryUrl()}/api/adapters/${encodeURIComponent(id)}`);
-  if (detail.status === 404) return text(`No adapter called "${id}".`, true);
-  if (!detail.ok) return text(`Registry returned ${detail.status}.`, true);
-
-  const found = (await detail.json()) as any;
+  let found: any;
+  try {
+    found = await fetchListing(id);
+  } catch (error) {
+    return text(error instanceof Error ? error.message : String(error), true);
+  }
   const target = version || found.version;
 
   // The audit runs before the download, so refusing costs nothing and the user
@@ -193,36 +263,14 @@ async function install(
     });
   }
 
-  const packResponse = await fetch(
-    `${registryUrl()}/api/adapters/${encodeURIComponent(id)}/${encodeURIComponent(target)}/pack.json`,
-  );
-  if (!packResponse.ok) return text(`No version ${target} of "${id}".`, true);
-  const body = await packResponse.text();
-
-  // Validate what actually arrived, not what the listing promised.
-  const { validatePack, packDigest, describePack } = await import('@yougotserved/adapter-sdk');
-  const pack = validatePack(JSON.parse(body));
-  const digest = await packDigest(pack);
-
-  const dir = adaptersDir();
-  fs.mkdirSync(dir, { recursive: true });
-  const file = path.join(dir, `${pack.id}.ygs.json`);
-  fs.writeFileSync(file, body);
-  fs.writeFileSync(
-    path.join(dir, `${pack.id}.lock.json`),
-    JSON.stringify(
-      { id: pack.id, version: pack.version, digest, installedAt: Date.now() },
-      null,
-      2,
-    ),
-  );
+  const receipt = await downloadAndInstall(id, target);
 
   return text({
-    installed: `${pack.id}@${pack.version}`,
-    digest,
-    file,
-    audit: describePack(pack),
-    next: `Restart your MCP client, or run: ygs serve --adapter ${pack.id}`,
+    installed: `${receipt.id}@${receipt.version}`,
+    digest: receipt.digest,
+    file: receipt.file,
+    audit: receipt.audit,
+    next: 'Restart your MCP client to pick up the new tools.',
   });
 }
 
@@ -275,10 +323,15 @@ function installId(): string {
 }
 
 function listInstalled(): CallToolResult {
-  const dir = adaptersDir();
-  if (!fs.existsSync(dir)) return text({ adapters: [], dir });
+  return text({ adapters: installedPacks(), dir: adaptersDir() });
+}
 
-  const adapters = fs
+/** Every pack on disk. Shared by the MCP tool and `ygs adapter list`. */
+export function installedPacks(): any[] {
+  const dir = adaptersDir();
+  if (!fs.existsSync(dir)) return [];
+
+  return fs
     .readdirSync(dir)
     .filter((name) => name.endsWith('.ygs.json'))
     .map((name) => {
@@ -292,9 +345,7 @@ function listInstalled(): CallToolResult {
           tools: Object.keys(pack.tools ?? {}),
         };
       } catch {
-        return { id: name, error: 'unreadable' };
+        return { id: name, error: 'unreadable', tools: [] };
       }
     });
-
-  return text({ adapters, dir });
 }

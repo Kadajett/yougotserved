@@ -87,6 +87,8 @@ export default {
       const pack = path.match(/^\/api\/adapters\/([a-z][a-z0-9_]*)\/([^/]+)\/pack\.json$/);
       if (pack?.[1] && pack[2]) return downloadPack(pack[1], pack[2], env);
 
+      if (path === '/api/resolve' && request.method === 'GET') return resolveHost(url);
+
       return fail(404, `No route for ${request.method} ${path}.`);
     } catch (error) {
       return fail(500, error instanceof Error ? error.message : String(error));
@@ -129,6 +131,46 @@ async function listAdapters(url: URL, env: Env): Promise<Response> {
     .all();
 
   return json({ adapters: (results ?? []).map(shape) });
+}
+
+/**
+ * Resolves an origin's addresses, over DNS-over-HTTPS.
+ *
+ * Shown beside an adapter's origins so someone deciding whether to install it
+ * can see where those names point. Read it as a fact about the internet rather
+ * than about the pack: a CDN answers differently per region, and the answer
+ * changes without anyone republishing anything.
+ *
+ * The hostname is checked against a strict shape before it reaches the query,
+ * because this endpoint makes an outbound request on a caller's say-so.
+ */
+async function resolveHost(url: URL): Promise<Response> {
+  const host = (url.searchParams.get('host') ?? '').toLowerCase();
+  if (!/^(?!-)[a-z0-9-]{1,63}(\.(?!-)[a-z0-9-]{1,63})+$/.test(host) || host.length > 253) {
+    return fail(400, 'A hostname is required.');
+  }
+
+  const ask = async (type: 'A' | 'AAAA'): Promise<string[]> => {
+    const answer = await fetch(
+      `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(host)}&type=${type}`,
+      { headers: { accept: 'application/dns-json' } },
+    );
+    if (!answer.ok) return [];
+    const body = (await answer.json()) as { Answer?: { type: number; data: string }[] };
+    const want = type === 'A' ? 1 : 28;
+    return (body.Answer ?? []).filter((entry) => entry.type === want).map((entry) => entry.data);
+  };
+
+  const [a, aaaa] = await Promise.all([ask('A'), ask('AAAA')]);
+  return new Response(JSON.stringify({ host, a, aaaa }), {
+    headers: {
+      'content-type': 'application/json',
+      'access-control-allow-origin': '*',
+      // An hour. Long enough that clicking around costs nothing, short enough
+      // that a moved host does not read as current for the rest of the day.
+      'cache-control': 'public, max-age=3600',
+    },
+  });
 }
 
 async function getAdapter(id: string, env: Env): Promise<Response> {
