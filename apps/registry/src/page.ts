@@ -75,6 +75,12 @@ export const PAGE = `<!doctype html>
 </main>
 
 <footer class="wrap">
+  <!--
+    Store link. Points at the install steps until the listing is public.
+    Swap this one href for the Chrome Web Store URL on the day it is live.
+  -->
+  <a href="https://github.com/Kadajett/yougotserved#install">Get the extension</a> &middot;
+  <a href="https://yougotserved.dev">yougotserved.dev</a> &middot;
   <a href="https://github.com/Kadajett/yougotserved">Source</a> &middot;
   A pack is data, never code. Read the origins before you install one.
 </footer>
