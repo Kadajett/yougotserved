@@ -115,6 +115,13 @@ export const PAGE = `<!doctype html>
     border: 1px solid var(--line); border-radius: 7px; white-space: pre-wrap;
     font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; overflow-x: auto;
   }
+  /* Two install routes stacked. The label sits tight above its command so the
+     pair reads as one thing, not as two unrelated code blocks. */
+  .install .how {
+    display: block; margin-top: 10px; font-size: 0.7rem; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--muted);
+  }
+  .install code { margin-top: 3px; }
   .empty { color: var(--muted); padding: 30px 0; }
   a { color: var(--red); }
   footer {
@@ -208,7 +215,14 @@ function card(a) {
     + '<button class="tag" type="button" aria-expanded="false" data-id="' + esc(a.id) + '">'
     + plural(a.tools, 'tool') + ' &#9662;</button></div>'
     + '<div class="detail" hidden></div>'
-    + '<code>ygs adapter add ' + esc(a.id) + '</code></li>';
+    // Two ways in, because people arrive with different things open. The first
+    // works through the MCP tools an agent already has; the second is the CLI.
+    + '<div class="install">'
+    + '<span class="how">Ask your agent</span>'
+    + '<code>Install the ygs adapter "' + esc(a.id) + '", show me its origins first</code>'
+    + '<span class="how">Or in a terminal</span>'
+    + '<code>ygs adapter add ' + esc(a.id) + '</code>'
+    + '</div></li>';
 }
 
 /**
