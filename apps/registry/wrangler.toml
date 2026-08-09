@@ -41,21 +41,26 @@ crons = ["17 4 * * 1"]
 [observability]
 enabled = true
 
-# The tip jar. Uncomment with a real address to turn it on; unset, every tip
-# route answers 404 and the registry never mentions money. A fork of this code
-# should leave it off rather than quietly collect for whoever wrote it.
+# The tip jar. Remove these to turn it off; unset, every tip route answers 404
+# and the registry never mentions money. A fork of this code should clear them
+# rather than quietly collect for whoever wrote it.
 #
-# This belongs here rather than in a secret, which looks backwards and is not.
-# A receiving address is public by nature, so there is nothing to keep. The risk
-# to a tip jar is not disclosure, it is substitution: someone changing where the
+# This belongs here rather than in a secret, which looks backwards and is not. A
+# receiving address is public by nature, so there is nothing to keep. The risk to
+# a tip jar is not disclosure, it is substitution: someone changing where the
 # money goes. In this file that is a diff somebody can see and revert. As a
 # dashboard secret it would change with no trace at all.
 #
-# [vars]
-# TIP_ADDRESS = "0x..."          # yours, on Base. Nothing here ever holds a key.
-# TIP_TOKEN   = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"  # USDC on Base, 6dp
-# TIP_CHAIN_ID = "8453"
-# TIP_RPC     = "https://mainnet.base.org"
+# Base rather than Ethereum mainnet, for the boring reason that mainnet gas
+# regularly costs more than a small tip is worth, and nobody sends five dollars
+# that costs four to send. It is EVM, so this is the same address on both chains
+# and the same key controls it. Base is also what Coinbase withdraws to without a
+# bridging step, which is the shortest path for most people who would tip at all.
+[vars]
+TIP_ADDRESS = "0x465cb27a4896053803b5Be450EE403af294ac3fb"
+TIP_TOKEN = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"     # USDC on Base, 6dp
+TIP_CHAIN_ID = "8453"
+TIP_RPC = "https://mainnet.base.org"
 
 # Secrets are never in this file. Set them once for each environment:
 #   wrangler secret put PUBLISH_TOKEN
