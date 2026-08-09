@@ -68,12 +68,23 @@ TIP_RPC = "https://mainnet.base.org"
 #   wrangler secret put GITHUB_CLIENT_ID
 #   wrangler secret put GITHUB_CLIENT_SECRET
 #
-# CDP credentials turn on inline settlement, which is what lets an agent pay
-# from the 402 itself instead of transferring separately and reporting the hash.
-# Unset, a client that signs is told so and the direct route still works.
-#   wrangler secret put CDP_API_KEY_ID       # organizations/<org>/apiKeys/<key>
-#   wrangler secret put CDP_API_KEY_SECRET   # base64, 64 bytes: seed + public key
+# A facilitator turns on inline settlement, which lets an agent pay from the 402
+# itself instead of transferring separately and reporting the hash. Unset, a
+# client that signs is told so and the direct route still works, which is the
+# whole tip jar and needs nobody's permission.
 #
-# The facilitator broadcasts the signed transfer and pays the gas. Funds move
-# from payer to the address above without passing through it, so this adds a
-# dependency and not a custodian. Base mainnet needs CDP; x402.org is testnet.
+# It broadcasts the signed transfer and pays the gas. Funds move from payer to
+# the address above without passing through it, and the destination is inside
+# the signature, so this is a dependency and not a custodian. Nothing here
+# grants anyone the ability to redirect a tip.
+#
+# Whichever provider, one of:
+#   wrangler secret put X402_FACILITATOR_KEY  # with X402_FACILITATOR set below
+#   wrangler secret put CDP_API_KEY_ID        # organizations/<org>/apiKeys/<key>
+#   wrangler secret put CDP_API_KEY_SECRET    # base64, 64 bytes: seed + public
+#
+# Base mainnet, checked August 2026:
+#   api.cdp.coinbase.com/platform/v2/x402  v2, needs a Coinbase account
+#   api.solvador.com                       v2, needs an API key
+#   facilitator.mogami.tech                keyless, but speaks v1 only
+# X402_FACILITATOR = "https://api.solvador.com"

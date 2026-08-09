@@ -33,26 +33,43 @@ const TOKEN_TTL_SECONDS = 110;
 
 export interface FacilitatorConfig {
   base: string;
-  keyName: string;
-  secret: string;
+  /** A plain bearer token, which is what most facilitators want. */
+  bearer?: string;
+  /** CDP's key name and Ed25519 secret, for its per-request JWT scheme instead. */
+  keyName?: string;
+  secret?: string;
 }
 
 /**
  * Reads the facilitator's configuration, or null when there is none.
  *
- * Null is not a failure. It means inline settlement is off, tips still arrive
- * by direct transfer and `/api/tip/claim`, and the 402 says as much rather than
+ * Deliberately not welded to one provider. Facilitators are interchangeable by
+ * design: they broadcast a signed transfer whose destination they cannot alter,
+ * so switching is a URL change and not a migration. Coinbase's is the default
+ * only because it is the one that has always been there, and picking a different
+ * one should not mean editing this file.
+ *
+ * Two auth styles, because the ecosystem has two. Most want a static bearer
+ * token; CDP signs a short-lived JWT per request. A facilitator wanting neither
+ * works too: set the URL and leave the rest empty.
+ *
+ * Null is not a failure. It means inline settlement is off, tips still arrive by
+ * direct transfer and `/api/tip/claim`, and the 402 says as much rather than
  * letting a client sign into a wall.
  */
 export function facilitatorConfig(env: Env): FacilitatorConfig | null {
+  const base = (env.X402_FACILITATOR ?? '').trim().replace(/\/+$/, '');
+  const bearer = (env.X402_FACILITATOR_KEY ?? '').trim();
   const keyName = (env.CDP_API_KEY_ID ?? '').trim();
   const secret = (env.CDP_API_KEY_SECRET ?? '').trim();
-  if (!keyName || !secret) return null;
+
+  const cdp = Boolean(keyName && secret);
+  if (!base && !cdp) return null;
 
   return {
-    base: (env.X402_FACILITATOR ?? DEFAULT_FACILITATOR).trim().replace(/\/+$/, ''),
-    keyName,
-    secret,
+    base: base || DEFAULT_FACILITATOR,
+    ...(bearer ? { bearer } : {}),
+    ...(cdp ? { keyName, secret } : {}),
   };
 }
 
@@ -103,7 +120,7 @@ async function signingKey(secret: string): Promise<CryptoKey> {
  * under two minutes because CDP will not accept more.
  */
 export async function cdpToken(
-  config: FacilitatorConfig,
+  config: { keyName?: string; secret?: string },
   method: string,
   host: string,
   path: string,
@@ -113,6 +130,7 @@ export async function cdpToken(
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
 
+  if (!config.keyName || !config.secret) throw new Error('No CDP credentials to sign with.');
   const header = { alg: 'EdDSA', typ: 'JWT', kid: config.keyName, nonce };
   const claims = {
     sub: config.keyName,
@@ -172,17 +190,33 @@ export interface SettleResult {
   amount?: string;
 }
 
+/** Whichever of the two auth styles this facilitator uses, or neither. */
+async function authorization(
+  config: FacilitatorConfig,
+  method: string,
+  host: string,
+  path: string,
+): Promise<Record<string, string>> {
+  if (config.bearer) return { authorization: `Bearer ${config.bearer}` };
+  if (config.keyName && config.secret) {
+    return { authorization: `Bearer ${await cdpToken(config, method, host, path)}` };
+  }
+  return {};
+}
+
 async function call<T>(
   config: FacilitatorConfig,
   route: '/verify' | '/settle',
   body: unknown,
 ): Promise<T> {
   const url = new URL(`${config.base}${route}`);
-  const token = await cdpToken(config, 'POST', url.host, url.pathname);
 
   const response = await fetch(url.toString(), {
     method: 'POST',
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: {
+      'content-type': 'application/json',
+      ...(await authorization(config, 'POST', url.host, url.pathname)),
+    },
     body: JSON.stringify(body),
   });
 

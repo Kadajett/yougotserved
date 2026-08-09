@@ -7,7 +7,13 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { chosen, cdpToken, readPayment, settlementHeader } from '../src/facilitator.js';
+import {
+  chosen,
+  cdpToken,
+  facilitatorConfig,
+  readPayment,
+  settlementHeader,
+} from '../src/facilitator.js';
 import { requirements, tipConfig } from '../src/tips.js';
 import type { Env } from '../src/index.js';
 
@@ -176,5 +182,38 @@ describe('settlementHeader', () => {
       payer: '0xdef',
       amount: '1000000',
     });
+  });
+});
+
+// Facilitators are interchangeable by design: one broadcasts a transfer whose
+// destination it cannot alter, so swapping is a URL change. These pin that the
+// code is not welded to whoever happens to be the default.
+describe('facilitatorConfig', () => {
+  const read = (env: Record<string, string>) => facilitatorConfig(env as unknown as Env);
+
+  it('is off with nothing set, which leaves the direct route working', () => {
+    expect(read({})).toBeNull();
+  });
+
+  it('takes a bare URL, for a facilitator that wants no credentials at all', () => {
+    expect(read({ X402_FACILITATOR: 'https://example.test/x402/' })).toEqual({
+      base: 'https://example.test/x402',
+    });
+  });
+
+  it('takes a static bearer, which is what most of them use', () => {
+    expect(
+      read({ X402_FACILITATOR: 'https://api.solvador.test', X402_FACILITATOR_KEY: 'k' }),
+    ).toMatchObject({ base: 'https://api.solvador.test', bearer: 'k' });
+  });
+
+  it('defaults the URL when only CDP credentials are given', () => {
+    const config = read({ CDP_API_KEY_ID: 'org/keys/1', CDP_API_KEY_SECRET: 'zz' })!;
+    expect(config.base).toBe('https://api.cdp.coinbase.com/platform/v2/x402');
+    expect(config.keyName).toBe('org/keys/1');
+  });
+
+  it('ignores half a CDP credential rather than signing with nothing', () => {
+    expect(read({ CDP_API_KEY_ID: 'org/keys/1' })).toBeNull();
   });
 });

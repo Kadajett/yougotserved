@@ -105,6 +105,7 @@ export interface Env {
   CDP_API_KEY_ID?: string;
   CDP_API_KEY_SECRET?: string;
   X402_FACILITATOR?: string;
+  X402_FACILITATOR_KEY?: string;
 }
 
 /**
