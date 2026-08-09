@@ -169,3 +169,27 @@ CREATE TABLE IF NOT EXISTS agent_tokens (
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_tokens_account ON agent_tokens(account_id);
+
+-- Tips. Voluntary, and nothing is gated behind them.
+--
+-- A tip is a transaction that already happened on a public chain; this table
+-- only records that somebody pointed at one and asked to be thanked for it. The
+-- transaction hash is the primary key, so the same payment cannot be claimed
+-- twice, by the same person or a different one.
+--
+-- `verified_at` is set only after the chain was actually read. A row without it
+-- is a claim, not a fact, and nothing should display it as one.
+CREATE TABLE IF NOT EXISTS tips (
+  tx_hash     TEXT PRIMARY KEY,             -- lowercase 0x-prefixed
+  chain       TEXT NOT NULL,
+  token       TEXT NOT NULL,
+  amount      TEXT NOT NULL,                -- smallest unit, as text: JS numbers lose precision
+  from_addr   TEXT,
+  account_id  INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+  display     TEXT NOT NULL DEFAULT '',     -- what a tipper asked to be called
+  note        TEXT NOT NULL DEFAULT '',
+  claimed_at  INTEGER NOT NULL,
+  verified_at INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_tips_verified ON tips(verified_at DESC);

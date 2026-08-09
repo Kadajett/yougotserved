@@ -27,6 +27,7 @@ import {
   type Account,
 } from './auth.js';
 import { DEVICE_PAGE, PAGE } from './page.js';
+import { confirmTip, formatAmount, isTxHash, requirements, tipConfig } from './tips.js';
 
 export interface Env {
   DB: D1Database;
@@ -59,6 +60,19 @@ export interface Env {
    */
   GITHUB_CLIENT_ID?: string;
   GITHUB_CLIENT_SECRET?: string;
+  /**
+   * Where tips go. A plain var in wrangler.toml, deliberately not a secret.
+   *
+   * A receiving address is public by nature, so there is nothing to keep. The
+   * risk to a tip jar is substitution rather than disclosure, and an address in
+   * version control changes only through a diff somebody can see.
+   *
+   * Unset, the tip routes answer 404 and the registry never mentions money.
+   */
+  TIP_ADDRESS?: string;
+  TIP_TOKEN?: string;
+  TIP_CHAIN_ID?: string;
+  TIP_RPC?: string;
 }
 
 /**
@@ -381,6 +395,7 @@ export default {
       if (path.startsWith('/api/auth/') || path === '/auth/device') {
         return auth(path, request, url, env);
       }
+      if (path.startsWith('/api/tip')) return tip(path, request, url, env);
 
       // Everything below is a maintainer's, and answers 404 to anyone else.
       // A 401 would confirm the routes exist, which is a map of what to attack.
@@ -786,6 +801,123 @@ async function isHeld(id: string, env: Env): Promise<boolean> {
     .bind(id)
     .first();
   return Boolean(row);
+}
+
+/* ------------------------------------------------------------------ *
+ * Tips
+ * ------------------------------------------------------------------ */
+
+/**
+ * The tip jar.
+ *
+ * 402 is the status code reserved for payment and never standardised, so it has
+ * been sitting unused since 1997. It is used here for its literal meaning and
+ * nothing more: this is how to pay, and nothing on this registry is behind it.
+ *
+ * The descriptor answers 402 because that is the code that means what it means.
+ * It is not a refusal, and it says so in the body. Every other route works the
+ * same whether anyone tips or not, which is a property worth defending: the
+ * moment a rate limit starts pointing at a payment page, a tip jar has quietly
+ * become a toll.
+ */
+async function tip(path: string, request: Request, url: URL, env: Env): Promise<Response> {
+  const config = tipConfig(env);
+  // 404 rather than 503. An unconfigured deployment should not advertise a tip
+  // jar that would collect for whoever wrote the code.
+  if (!config) return fail(404, `No route for ${request.method} ${path}.`);
+
+  const local = /^(localhost|127\.0\.0\.1)(:|$)/.test(url.host);
+  const origin = local ? url.origin : `https://${url.host}`;
+
+  if (path === '/api/tip' && request.method === 'GET') {
+    return json(requirements(config, origin), 402);
+  }
+
+  if (path === '/api/tip/supporters' && request.method === 'GET') {
+    const { results } = await env.DB.prepare(
+      `SELECT display, note, amount, verified_at FROM tips
+        WHERE verified_at IS NOT NULL
+        ORDER BY verified_at DESC LIMIT 50`,
+    ).all();
+
+    return json({
+      supporters: (results ?? []).map((row) => ({
+        display: String(row.display || 'anonymous'),
+        note: String(row.note || ''),
+        amount: formatAmount(String(row.amount)),
+        at: row.verified_at,
+      })),
+    });
+  }
+
+  if (path === '/api/tip/claim' && request.method === 'POST') {
+    // This one makes an outbound call on a caller's say-so, so it is throttled
+    // whether or not the hash turns out to be real.
+    if (await throttled(request, env, 'tip', 20, 3600)) {
+      return fail(429, 'Too many claims from here in the last hour.');
+    }
+
+    const body = (await request.json().catch(() => ({}))) as {
+      txHash?: string;
+      display?: string;
+      note?: string;
+    };
+    if (!isTxHash(body.txHash)) {
+      return fail(400, 'Send { txHash } for a transaction that has already gone through.');
+    }
+    const txHash = body.txHash.trim().toLowerCase();
+
+    const seen = await env.DB.prepare('SELECT verified_at FROM tips WHERE tx_hash = ?1')
+      .bind(txHash)
+      .first<{ verified_at: number | null }>();
+    if (seen) return fail(409, 'That transaction has already been counted. Thank you twice over.');
+
+    const confirmed = await confirmTip(config, txHash);
+    if (!confirmed) {
+      return fail(
+        422,
+        'That transaction did not move the expected token to the tip address, or has not landed yet.',
+        'Wait for it to confirm, then try again.',
+      );
+    }
+
+    // A tipper may say who they are, and what they say is user text like any
+    // other, so it goes through the same checks as a pack description.
+    const { reviewFields } = await import('@yougotserved/moderation');
+    const said = reviewFields({ display: body.display, note: body.note });
+    const clean = said.severity === 'allow';
+
+    const account = await currentAccount(request, env);
+    const now = Date.now();
+
+    await env.DB.prepare(
+      `INSERT INTO tips (tx_hash, chain, token, amount, from_addr, account_id, display, note, claimed_at, verified_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)`,
+    )
+      .bind(
+        txHash,
+        `eip155:${config.chainId}`,
+        config.token,
+        confirmed.amount,
+        confirmed.from,
+        account?.id ?? null,
+        clean ? (body.display ?? account?.login ?? '').slice(0, 40) : '',
+        clean ? (body.note ?? '').slice(0, 200) : '',
+        now,
+      )
+      .run();
+
+    return json({
+      ok: true,
+      amount: formatAmount(confirmed.amount),
+      // Said out loud, because a payment endpoint that quietly grants something
+      // is how a tip jar turns into a paywall without anyone deciding to.
+      unlocked: 'nothing, on purpose',
+      ...(clean ? {} : { note: 'Your message was held for review. The tip counted.' }),
+    });
+  }
+
+  return fail(404, `No route for ${request.method} ${path}.`);
 }
 
 /* ------------------------------------------------------------------ *

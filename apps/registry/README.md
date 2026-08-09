@@ -124,6 +124,48 @@ The verifier never leaves the machine that started the flow until it polls, so a
 code read off someone's screen is not enough to claim the token that comes out of
 it. A grant can be claimed once.
 
+## Tips
+
+HTTP 402 is the status code reserved for payment and never standardised, so it
+has been sitting unused since 1997. It is used here for its literal meaning and
+nothing more: this is how to pay, and nothing on this registry is behind it.
+
+```bash
+curl -i https://registry.yougotserved.dev/api/tip
+# HTTP/2 402
+# { "optional": true, "gates": [], "accepts": [ { "payTo": "0x...", ... } ] }
+```
+
+`gates` is empty and is meant to stay empty. Every route works the same whether
+anyone tips or not, and a claim answers `"unlocked": "nothing, on purpose"`. The
+moment a rate limit starts pointing at a payment page, a tip jar has quietly
+become a toll, so the two are kept apart.
+
+| Route                     | Does                                        |
+| ------------------------- | ------------------------------------------- |
+| `GET /api/tip`            | 402, with how to pay                        |
+| `POST /api/tip/claim`     | `{ txHash }`. Read off chain, then recorded |
+| `GET /api/tip/supporters` | Verified tips, most recent first            |
+
+Turn it on by uncommenting `TIP_ADDRESS` in `wrangler.toml`. Unset, every tip
+route answers 404, which is the right default for a fork.
+
+The Worker never holds a key. Receiving USDC needs only a public address, and
+confirming a payment is a read of a public chain, so the worst this code can do
+is report a tip wrongly rather than lose one.
+
+A claim carries a transaction hash and nothing else, because a hash is the only
+part a claimant cannot invent. The registry then checks the transaction
+succeeded, that the log came from the token contract it expects, that the
+recipient is the tip address, and how much moved. Amounts are handled as
+`BigInt` throughout: USDC has six decimals and a float would round a large tip,
+which is the one bug a tip jar must not have. A hash is the primary key, so the
+same payment cannot be counted twice.
+
+A tipper may attach a name and a note. Those are user text like any other and go
+through the same checks as a pack description; a note that fails is dropped
+while the tip still counts.
+
 ## Proof of work
 
 Turnstile asks whether you are a browser. Most writes here come from an agent,
