@@ -6,8 +6,7 @@
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute yougotserved-registry --local --file=schema.sql",
-    "db:remote": "wrangler d1 execute yougotserved-registry --remote --file=schema.sql",
-    "test": "vitest run"
+    "db:remote": "wrangler d1 execute yougotserved-registry --remote --file=schema.sql"
   },
   "dependencies": {
     "@yougotserved/adapter-sdk": "workspace:*"
