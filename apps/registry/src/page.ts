@@ -267,22 +267,37 @@ async function detailFor(id) {
 function group(adapters) {
   const domains = new Map();
   for (const a of adapters) {
-    const seen = new Set((a.origins || []).map(hostOf));
-    for (const host of (seen.size ? seen : new Set(['']))) {
+    const hosts = new Set((a.origins || []).map(hostOf));
+    for (const host of (hosts.size ? hosts : new Set(['']))) {
       const domain = domainOf(host);
       if (!domains.has(domain)) domains.set(domain, new Map());
-      const hosts = domains.get(domain);
-      if (!hosts.has(host)) hosts.set(host, []);
-      hosts.get(host).push(a);
+      const byHost = domains.get(domain);
+      if (!byHost.has(host)) byHost.set(host, []);
+      byHost.get(host).push(a);
     }
   }
 
-  return [...domains.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([domain, hosts]) => {
-    const many = hosts.size > 1;
-    const body = [...hosts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([host, list]) =>
-      '<div class="host' + (many ? ' nested' : '') + '">'
-      + (many ? '<h3>' + esc(host) + '</h3>' : '')
-      + '<ul>' + list.map(card).join('') + '</ul></div>').join('');
+  const sorted = (map) => [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+
+  return sorted(domains).map(([domain, byHost]) => {
+    const ids = new Set([...byHost.values()].flat().map((a) => a.id));
+
+    // One adapter covering several hosts of a domain is still one adapter. It
+    // gets one card, because two identical cards with the same install command
+    // is repetition, not information. Its origin tags already list the hosts.
+    if (ids.size < 2) {
+      const only = [...byHost.values()].flat()[0];
+      return '<section class="domain"><h2>' + esc(domain) + '</h2>'
+        + '<div class="host"><ul>' + card(only) + '</ul></div></section>';
+    }
+
+    // Several adapters on one domain is the case worth nesting: the host tells
+    // you which one you want.
+    const body = sorted(byHost).map(([host, list]) => {
+      const unique = [...new Map(list.map((a) => [a.id, a])).values()];
+      return '<div class="host nested"><h3>' + esc(host) + '</h3>'
+        + '<ul>' + unique.map(card).join('') + '</ul></div>';
+    }).join('');
     return '<section class="domain"><h2>' + esc(domain) + '</h2>' + body + '</section>';
   }).join('');
 }
