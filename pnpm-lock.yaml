@@ -266,6 +266,9 @@ importers:
       '@tanstack/react-start':
         specifier: latest
         version: 1.168.42(esbuild@0.28.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(rolldown@1.2.3)(rollup@4.62.4)(vite@8.2.1(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(yaml@2.9.0))
+      '@yougotserved/registry':
+        specifier: workspace:*
+        version: link:../registry
       react:
         specifier: ^19.2.0
         version: 19.2.8

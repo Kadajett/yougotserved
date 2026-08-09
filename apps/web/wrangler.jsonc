@@ -2,6 +2,35 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "yougotserved-web-staging",
   "compatibility_date": "2025-09-02",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry"
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "@tanstack/react-start/server-entry",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "yougotserved-registry",
+      "database_id": "112c16d2-8ee4-4e09-baf8-9616d1e2ef82"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "BLOCKLIST",
+      "id": "d8127b6f637641c69382646cb2b7a69e"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "TIP_ADDRESS": "0x465cb27a4896053803b5Be450EE403af294ac3fb",
+    "TIP_TOKEN": "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+    "TIP_CHAIN_ID": "8453",
+    "TIP_RPC": "https://mainnet.base.org"
+  },
+  "triggers": {
+    "crons": [
+      "17 4 * * 1"
+    ]
+  }
 }

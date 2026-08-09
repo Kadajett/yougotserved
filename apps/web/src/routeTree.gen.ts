@@ -10,43 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as IndexRouteImport } from './routes/index';
-import { Route as ApiHealthRouteImport } from './routes/api/health';
+import { Route as ApiSplatRouteImport } from './routes/api.$';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any);
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
-  '/api/health': typeof ApiHealthRoute;
+  '/api/$': typeof ApiSplatRoute;
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
-  '/api/health': typeof ApiHealthRoute;
+  '/api/$': typeof ApiSplatRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
-  '/api/health': typeof ApiHealthRoute;
+  '/api/$': typeof ApiSplatRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
-  fullPaths: '/' | '/api/health';
+  fullPaths: '/' | '/api/$';
   fileRoutesByTo: FileRoutesByTo;
-  to: '/' | '/api/health';
-  id: '__root__' | '/' | '/api/health';
+  to: '/' | '/api/$';
+  id: '__root__' | '/' | '/api/$';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
-  ApiHealthRoute: typeof ApiHealthRoute;
+  ApiSplatRoute: typeof ApiSplatRoute;
 }
 
 declare module '@tanstack/react-router' {
@@ -58,11 +58,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    '/api/health': {
-      id: '/api/health';
-      path: '/api/health';
-      fullPath: '/api/health';
-      preLoaderRoute: typeof ApiHealthRouteImport;
+    '/api/$': {
+      id: '/api/$';
+      path: '/api/$';
+      fullPath: '/api/$';
+      preLoaderRoute: typeof ApiSplatRouteImport;
       parentRoute: typeof rootRouteImport;
     };
   }
@@ -70,7 +70,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiHealthRoute: ApiHealthRoute,
+  ApiSplatRoute: ApiSplatRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

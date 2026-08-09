@@ -390,6 +390,44 @@ async function banned(env: Env, list: string[]): Promise<string | null> {
   return row.reason || `Refused by a ${row.kind} ban.`;
 }
 
+/**
+ * Every request this registry answers, as one function.
+ *
+ * Exported so the TanStack Start app can mount it whole rather than restating
+ * 22 routes as 22 files. The Worker entry below calls the same function, so
+ * there is one implementation and no second copy to drift.
+ */
+export async function handle(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const path = url.pathname.replace(/\/+$/, '') || '/';
+
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'access-control-allow-origin': '*',
+        'access-control-allow-methods': 'GET, POST, OPTIONS',
+        'access-control-allow-headers': 'content-type, authorization',
+      },
+    });
+  }
+
+  try {
+    const response = await route(path, request, url, env);
+
+    // RFC 8288's `payment` relation: how a resource says where to pay without
+    // asking anyone to. One line, in one place, so it cannot drift into being
+    // attached to a refusal. Relative, so it reads correctly on workers.dev
+    // and on the custom domain, and absent entirely on a fork that never
+    // configured a tip jar.
+    if (tipConfig(env) && !path.startsWith('/api/tip')) {
+      response.headers.append('link', '</api/tip>; rel="payment"');
+    }
+    return response;
+  } catch (error) {
+    return fail(500, error instanceof Error ? error.message : String(error));
+  }
+}
+
 export default {
   /**
    * Rebuilds the domain corpus weekly.
@@ -401,36 +439,7 @@ export default {
     await refreshBlocklist(env);
   },
 
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, '') || '/';
-
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'access-control-allow-origin': '*',
-          'access-control-allow-methods': 'GET, POST, OPTIONS',
-          'access-control-allow-headers': 'content-type, authorization',
-        },
-      });
-    }
-
-    try {
-      const response = await route(path, request, url, env);
-
-      // RFC 8288's `payment` relation: how a resource says where to pay without
-      // asking anyone to. One line, in one place, so it cannot drift into being
-      // attached to a refusal. Relative, so it reads correctly on workers.dev
-      // and on the custom domain, and absent entirely on a fork that never
-      // configured a tip jar.
-      if (tipConfig(env) && !path.startsWith('/api/tip')) {
-        response.headers.append('link', '</api/tip>; rel="payment"');
-      }
-      return response;
-    } catch (error) {
-      return fail(500, error instanceof Error ? error.message : String(error));
-    }
-  },
+  fetch: handle,
 };
 
 async function route(path: string, request: Request, url: URL, env: Env): Promise<Response> {
