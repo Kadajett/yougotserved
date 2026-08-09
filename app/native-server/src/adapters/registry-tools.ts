@@ -250,6 +250,15 @@ async function install(
   // The audit runs before the download, so refusing costs nothing and the user
   // sees the reach before any bytes land on disk.
   if (!confirmed) {
+    // Everything above `does` is the author describing their own pack. `does`
+    // is read off the steps, so a pack that calls itself a reader and then
+    // navigates somewhere else has nowhere to hide.
+    const { describeSteps } = await import('@yougotserved/adapter-sdk');
+    const does: Record<string, string[]> = {};
+    for (const [toolId, tool] of Object.entries<any>(found.pack?.tools ?? {})) {
+      does[toolId] = describeSteps(tool.steps ?? [], '');
+    }
+
     return text({
       confirmRequired: true,
       adapter: `${found.id}@${target}`,
@@ -257,9 +266,11 @@ async function install(
       origins: found.origins,
       capabilities: found.capabilities,
       tools: Object.keys(found.pack?.tools ?? {}),
+      does,
+      readTheSource: `${registryUrl()}/api/adapters/${encodeURIComponent(id)}/${encodeURIComponent(target)}/pack.json`,
       warning:
         'These tools will act with this browser session on the origins above. ' +
-        'Show the user this list, then call again with confirm: true.',
+        'Show the user what each tool does, then call again with confirm: true.',
     });
   }
 

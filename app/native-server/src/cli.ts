@@ -288,6 +288,30 @@ adapter
   });
 
 adapter
+  .command('show <id>')
+  .description('Print what an adapter does, without installing it')
+  .option('-v, --version <version>', 'Pin a version. Defaults to the newest')
+  .option('--json', 'Print the raw pack instead')
+  .action(async (id: string, options) => {
+    try {
+      const { fetchListing } = await import('./adapters/registry-tools.js');
+      const listing = await fetchListing(id);
+
+      if (options.json) {
+        console.log(JSON.stringify(listing.pack, null, 2));
+        return;
+      }
+
+      const { describePack } = await import('@yougotserved/adapter-sdk');
+      console.log(describePack(listing.pack, { steps: true }));
+      console.log(`\nDigest: ${listing.digest}`);
+    } catch (error: any) {
+      console.error(colorText(error.message, 'red'));
+      process.exit(1);
+    }
+  });
+
+adapter
   .command('add <id>')
   .description('Install an adapter from the registry')
   .option('-v, --version <version>', 'Pin a version. Defaults to the newest')
@@ -301,12 +325,9 @@ adapter
       // The reach is printed before anything is downloaded, the same order the
       // MCP tool uses. Installing is the point where a stranger's pack gets
       // your logged-in browser, so it is worth reading twice.
-      console.log(
-        `\n${colorText(`${listing.id}@${target}`, 'green')}  ${listing.description ?? ''}`,
-      );
-      console.log(`  Origins:      ${(listing.origins ?? []).join(', ')}`);
-      console.log(`  Capabilities: ${(listing.capabilities ?? []).join(', ')}`);
-      console.log(`  Tools:        ${Object.keys(listing.pack?.tools ?? {}).join(', ')}\n`);
+      const { describePack } = await import('@yougotserved/adapter-sdk');
+      console.log(`\n${colorText(`${listing.id}@${target}`, 'green')}`);
+      console.log(`${describePack(listing.pack, { steps: true })}\n`);
 
       if (!options.yes && !(await confirm('Install this adapter?'))) {
         console.log('Nothing was written.');

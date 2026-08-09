@@ -189,7 +189,57 @@ export function validatePack(value: unknown): Pack {
  *
  * Origins first: it is the only line that bounds what the adapter can reach.
  */
-export function describePack(pack: Pack): string {
+/**
+ * Renders a step tree as readable lines.
+ *
+ * Every other field in a pack is prose its author wrote, so a pack can describe
+ * itself as "read the front page" while its steps go somewhere else. The steps
+ * are the only part that says what will actually happen, which makes this the
+ * one description worth trusting.
+ */
+export function describeSteps(steps: readonly Step[], indent = '  '): string[] {
+  const lines: string[] = [];
+
+  for (const step of steps) {
+    if ('goto' in step) lines.push(`${indent}go to ${step.goto}`);
+    else if ('waitFor' in step) lines.push(`${indent}wait`);
+    else if ('click' in step) {
+      lines.push(`${indent}click ${step.click}${step.optional ? ' (if present)' : ''}`);
+    } else if ('fill' in step) {
+      lines.push(
+        `${indent}type ${step.value} into ${step.fill}${step.optional ? ' (if present)' : ''}`,
+      );
+    } else if ('select' in step) {
+      lines.push(`${indent}choose ${step.value} in ${step.select}`);
+    } else if ('press' in step) lines.push(`${indent}press ${step.press}`);
+    else if ('scroll' in step) lines.push(`${indent}scroll`);
+    else if ('upload' in step) {
+      lines.push(
+        `${indent}attach ${step.upload.file} to ${step.upload.selector ?? step.upload.trigger}`,
+      );
+    } else if ('extract' in step) {
+      const fields = Object.keys(step.extract.fields ?? {}).join(', ');
+      lines.push(`${indent}read ${step.extract.each ?? 'the page'}${fields ? `: ${fields}` : ''}`);
+    } else if ('assert' in step) {
+      lines.push(`${indent}stop unless the page looks right (${step.assert.code})`);
+    } else if ('repeat' in step) {
+      lines.push(`${indent}repeat up to ${step.repeat.times} times:`);
+      lines.push(...describeSteps(step.repeat.steps, `${indent}  `));
+    } else if ('forEach' in step) {
+      lines.push(`${indent}for each ${step.forEach}:`);
+      lines.push(...describeSteps(step.steps, `${indent}  `));
+    }
+  }
+
+  return lines;
+}
+
+export interface DescribeOptions {
+  /** Include the steps. Off by default, because the summary is often enough. */
+  steps?: boolean;
+}
+
+export function describePack(pack: Pack, options: DescribeOptions = {}): string {
   const lines = [
     `${pack.name} (${pack.id}@${pack.version})`,
     pack.description,
@@ -208,6 +258,9 @@ export function describePack(pack: Pack): string {
       .filter(Boolean)
       .join(', ');
     lines.push(`  ${toolId}${flags ? ` [${flags}]` : ''} — ${tool.description}`);
+
+    // The description above is the author's claim. This is what it does.
+    if (options.steps) lines.push(...describeSteps(tool.steps, '      '));
   }
 
   return lines.join('\n');

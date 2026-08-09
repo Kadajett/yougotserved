@@ -138,6 +138,8 @@ export {
   buildPack,
   canonicalJson,
   describePack,
+  describeSteps,
+  type DescribeOptions,
   packDigest,
   validatePack,
   PackError,

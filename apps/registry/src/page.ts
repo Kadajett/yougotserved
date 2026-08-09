@@ -106,6 +106,12 @@ export const PAGE = `<!doctype html>
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.75rem; color: var(--muted);
   }
+  .detail .steps {
+    margin: 6px 0 0; padding: 8px 10px; background: var(--sunk);
+    border: 1px solid var(--line); border-radius: 6px; white-space: pre-wrap;
+    font: 0.72rem/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--ink); overflow-x: auto;
+  }
   .detail .digest {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.7rem; color: var(--muted); word-break: break-all;
@@ -232,6 +238,39 @@ function card(a) {
  * descriptions and risk say what it will do, the digest says which bytes, and
  * the addresses say where its origins point right now.
  */
+/**
+ * Renders a tool's steps as readable lines.
+ *
+ * Mirrors describeSteps in the SDK. Every other field on a card is prose the
+ * author wrote, so this is the only part that says what a pack will really do.
+ */
+function describeSteps(steps, indent) {
+  const pad = indent || '';
+  const out = [];
+  for (const s of steps) {
+    if ('goto' in s) out.push(pad + 'go to ' + s.goto);
+    else if ('waitFor' in s) out.push(pad + 'wait');
+    else if ('click' in s) out.push(pad + 'click ' + s.click + (s.optional ? ' (if present)' : ''));
+    else if ('fill' in s) out.push(pad + 'type ' + s.value + ' into ' + s.fill + (s.optional ? ' (if present)' : ''));
+    else if ('select' in s) out.push(pad + 'choose ' + s.value + ' in ' + s.select);
+    else if ('press' in s) out.push(pad + 'press ' + s.press);
+    else if ('scroll' in s) out.push(pad + 'scroll');
+    else if ('upload' in s) out.push(pad + 'attach ' + s.upload.file + ' to ' + (s.upload.selector || s.upload.trigger));
+    else if ('extract' in s) {
+      const f = Object.keys(s.extract.fields || {}).join(', ');
+      out.push(pad + 'read ' + (s.extract.each || 'the page') + (f ? ': ' + f : ''));
+    } else if ('assert' in s) out.push(pad + 'stop unless the page looks right (' + s.assert.code + ')');
+    else if ('repeat' in s) {
+      out.push(pad + 'repeat up to ' + s.repeat.times + ' times:');
+      out.push(...describeSteps(s.repeat.steps, pad + '  '));
+    } else if ('forEach' in s) {
+      out.push(pad + 'for each ' + s.forEach + ':');
+      out.push(...describeSteps(s.steps, pad + '  '));
+    }
+  }
+  return out;
+}
+
 async function detailFor(id) {
   const res = await fetch('/api/adapters/' + encodeURIComponent(id));
   if (!res.ok) return '<p class="desc">Could not load details.</p>';
@@ -243,6 +282,7 @@ async function detailFor(id) {
     + (t.risk && t.risk !== 'read' ? '<span class="risk">' + esc(t.risk) + '</span>' : '')
     + '</dt><dd>' + esc(t.description || '')
     + (t.capabilities ? ' <span class="addr">[' + esc(t.capabilities.join(', ')) + ']</span>' : '')
+    + '<pre class="steps">' + esc(describeSteps(t.steps || []).join('\\n')) + '</pre>'
     + '</dd>').join('');
 
   // Resolved one at a time so a slow or missing name does not hide the rest.
